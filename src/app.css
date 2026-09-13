@@ -11,8 +11,8 @@
   --dial-dawn: #ebebeb;
   --dial-midday: #f4f4f5;
   --dial-dusk: #e4e4e7;
-  --dial-midnight: #a1a1aa;
-  --dial-newday: #3f3f46;
+  --dial-midnight: #52525b;
+  --dial-newday: #27272a;
   --dial-text-dark: #18181b;
   --dial-text-light: #ffffff;
 }
@@ -41,8 +41,8 @@
   --dial-dawn: #ccfbf1;
   --dial-midday: #f0fdfa;
   --dial-dusk: #99f6e4;
-  --dial-midnight: #5eead4;
-  --dial-newday: #0f766e;
+  --dial-midnight: #0f766e;
+  --dial-newday: #134e4a;
 }
 [data-theme="dark"][data-palette="teal"] {
   --dial-dawn: #0d9488;
@@ -56,8 +56,8 @@
   --dial-dawn: #e0e7ff;
   --dial-midday: #eef2ff;
   --dial-dusk: #c7d2fe;
-  --dial-midnight: #a5b4fc;
-  --dial-newday: #3730a3;
+  --dial-midnight: #4338ca;
+  --dial-newday: #312e81;
 }
 [data-theme="dark"][data-palette="indigo"] {
   --dial-dawn: #4f46e5;
@@ -71,8 +71,8 @@
   --dial-dawn: #fce7f3;
   --dial-midday: #fdf2f8;
   --dial-dusk: #fbcfe8;
-  --dial-midnight: #f9a8d4;
-  --dial-newday: #9d174d;
+  --dial-midnight: #be185d;
+  --dial-newday: #831843;
 }
 [data-theme="dark"][data-palette="pink"] {
   --dial-dawn: #db2777;
@@ -86,8 +86,8 @@
   --dial-dawn: #dbeafe;
   --dial-midday: #eff6ff;
   --dial-dusk: #bfdbfe;
-  --dial-midnight: #93c5fd;
-  --dial-newday: #1e40af;
+  --dial-midnight: #1d4ed8;
+  --dial-newday: #1e3a8a;
 }
 [data-theme="dark"][data-palette="blue"] {
   --dial-dawn: #2563eb;
@@ -101,8 +101,8 @@
   --dial-dawn: #f3e8ff;
   --dial-midday: #faf5ff;
   --dial-dusk: #e9d5ff;
-  --dial-midnight: #d8b4fe;
-  --dial-newday: #6b21a8;
+  --dial-midnight: #7e22ce;
+  --dial-newday: #581c87;
 }
 [data-theme="dark"][data-palette="purple"] {
   --dial-dawn: #9333ea;
