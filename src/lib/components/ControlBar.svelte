@@ -28,7 +28,7 @@
   let isSortOpen = $state(false);
 
   const sortOptions: { id: SortStrategy; label: string }[] = [
-    { id: 'custom', label: 'Custom Order' },
+    { id: 'custom', label: 'Order Added' },
     { id: 'offset-asc', label: 'West → East (Ascending)' },
     { id: 'offset-desc', label: 'East → West (Descending)' },
     { id: 'name', label: 'City Name (A–Z)' }
