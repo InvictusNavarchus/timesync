@@ -1,7 +1,7 @@
 <script lang="ts">
   import { syncState } from '$lib/state/timesync.svelte';
   import { getConsecutiveDates } from '$lib/domain/timezone';
-  import { searchTimezones, type TimezoneSearchItem } from '$lib/domain/search';
+  import { searchTimezones, getTimezoneSearchItem, type TimezoneSearchItem } from '$lib/domain/search';
   import type { Palette, SortStrategy } from '$lib/domain/types';
   import { DateTime } from 'luxon';
   import {
@@ -13,7 +13,8 @@
     ArrowUpDown,
     ArrowLeftToLine,
     ArrowRightToLine,
-    X
+    X,
+    Clock
   } from 'lucide-svelte';
 
   // Search state
@@ -50,6 +51,7 @@
 
   // Search results
   const searchResults = $derived(searchTimezones(searchQuery, 15));
+  const recentItems = $derived(syncState.recents.map((id) => getTimezoneSearchItem(id)));
 
   const paletteOptions: { id: Palette; color: string }[] = [
     { id: 'gray', color: '#71717a' },
@@ -269,12 +271,49 @@
     <Search size={18} strokeWidth={1.5} class="search-icon" />
 
     <!-- Floating Dropdown underneath input -->
-    {#if isSearchFocused && searchQuery.trim().length > 0}
-      <div class="search-dropdown">
-        {#if searchResults.length === 0}
-          <div class="no-results">No timezone found matching "{searchQuery}"</div>
-        {:else}
-          {#each searchResults as item}
+    {#if isSearchFocused}
+      {#if searchQuery.trim().length > 0}
+        <div class="search-dropdown">
+          {#if searchResults.length === 0}
+            <div class="no-results">No timezone found matching "{searchQuery}"</div>
+          {:else}
+            {#each searchResults as item}
+              {@const nowZoned = DateTime.now().setZone(item.id)}
+              {@const timeStr = syncState.timeFormat === '24h' ? nowZoned.toFormat('HH:mm') : nowZoned.toFormat('h:mm a')}
+              <button
+                type="button"
+                class="search-item-btn"
+                onclick={() => handleAddSearched(item)}
+              >
+                <div class="item-content">
+                  <div class="item-primary-row">
+                    <span class="item-city">{item.city}</span>
+                    <sup class="item-abbr">{item.abbr}</sup>
+                  </div>
+                  <div class="item-secondary-row">
+                    {#if item.descriptor}
+                      <span class="item-descriptor">{item.descriptor}</span>
+                    {/if}
+                    {#if item.descriptor && item.country && item.country !== item.city}
+                      <span class="item-sep">·</span>
+                    {/if}
+                    {#if item.country && item.country !== item.city}
+                      <span class="item-country">{item.country}</span>
+                    {/if}
+                  </div>
+                </div>
+                <span class="item-clock">{timeStr}</span>
+              </button>
+            {/each}
+          {/if}
+        </div>
+      {:else if recentItems.length > 0}
+        <div class="search-dropdown">
+          <div class="search-section-header">
+            <Clock size={12} />
+            <span>Recently Added</span>
+          </div>
+          {#each recentItems as item}
             {@const nowZoned = DateTime.now().setZone(item.id)}
             {@const timeStr = syncState.timeFormat === '24h' ? nowZoned.toFormat('HH:mm') : nowZoned.toFormat('h:mm a')}
             <button
@@ -302,8 +341,8 @@
               <span class="item-clock">{timeStr}</span>
             </button>
           {/each}
-        {/if}
-      </div>
+        </div>
+      {/if}
     {/if}
   </div>
 </div>
@@ -712,6 +751,20 @@
     border-radius: 6px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
     z-index: 50;
+  }
+
+  .search-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-primary);
+    background: var(--bg-surface-alt);
   }
 
   .no-results {
