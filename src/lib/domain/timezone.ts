@@ -140,11 +140,26 @@ export function getTimezoneRowData(
   homeZone: string,
   selectedDate: string,
   format: TimeFormat,
-  meeting?: MeetingSelection | null
+  meeting?: MeetingSelection | null,
+  nowDateTime?: DateTime
 ): TimezoneRowData {
-  const { region, city } = parseTimezoneId(timezoneId);
-  const nowTarget = DateTime.now().setZone(timezoneId);
-  const nowHome = DateTime.now().setZone(homeZone);
+  const now = nowDateTime && nowDateTime.isValid ? nowDateTime : DateTime.now();
+
+  let validTargetZone = timezoneId;
+  let nowTarget = now.setZone(timezoneId);
+  if (!nowTarget.isValid) {
+    validTargetZone = 'UTC';
+    nowTarget = now.setZone('UTC');
+  }
+
+  let validHomeZone = homeZone;
+  let nowHome = now.setZone(homeZone);
+  if (!nowHome.isValid) {
+    validHomeZone = 'UTC';
+    nowHome = now.setZone('UTC');
+  }
+
+  const { region, city } = parseTimezoneId(validTargetZone);
 
   const offsetHours = nowTarget.offset / 60;
   const diffFromHomeHours = (nowTarget.offset - nowHome.offset) / 60;
@@ -156,18 +171,25 @@ export function getTimezoneRowData(
 
   const abbr = nowTarget.toFormat('ZZZZ');
 
-  const anchorDate = DateTime.fromISO(selectedDate, { zone: homeZone }).startOf('day');
-  const isHome = timezoneId === homeZone;
-  const dials = buildRowDials(timezoneId, anchorDate, format, isHome);
+  const anchorBase = DateTime.fromISO(selectedDate, { zone: validHomeZone });
+  const anchorDate = (anchorBase.isValid ? anchorBase : nowHome).startOf('day');
+  const isHome = validTargetZone === validHomeZone;
+  const dials = buildRowDials(validTargetZone, anchorDate, format, isHome);
 
   let meetingTimeRange: TimezoneRowData['meetingTimeRange'];
   if (meeting) {
-    const startDt = anchorDate.plus({ hours: meeting.startHourIndex }).setZone(timezoneId);
-    const endDt = anchorDate.plus({ hours: meeting.endHourIndex }).setZone(timezoneId);
+    const startDt = anchorDate.plus({ hours: meeting.startHourIndex }).setZone(validTargetZone);
+    const endDt = anchorDate.plus({ hours: meeting.endHourIndex }).setZone(validTargetZone);
+    const startDate = startDt.toFormat('ccc, LLL d');
+    const endDate = endDt.toFormat('ccc, LLL d');
+    const isMultiDay = !startDt.hasSame(endDt, 'day');
     meetingTimeRange = {
       start: startDt.toFormat(timeFmt),
       end: endDt.toFormat(timeFmt),
-      date: startDt.toFormat('ccc, LLL d')
+      date: isMultiDay ? `${startDate} – ${endDate}` : startDate,
+      startDate,
+      endDate,
+      isMultiDay
     };
   }
 

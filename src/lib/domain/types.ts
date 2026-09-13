@@ -32,6 +32,9 @@ export interface TimezoneRowData {
     start: string;
     end: string;
     date: string;
+    startDate?: string;
+    endDate?: string;
+    isMultiDay?: boolean;
   };
   dials: DialCell[];
 }
