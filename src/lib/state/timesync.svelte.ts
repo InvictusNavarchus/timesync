@@ -401,6 +401,16 @@ export class TimeSyncState {
     this.schedulePersist();
   }
 
+  renamePreset(id: string, newName: string): boolean {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const exists = this.presets.some((p) => p.id === id);
+    if (!exists) return false;
+    this.presets = this.presets.map((p) => (p.id === id ? { ...p, name: trimmed } : p));
+    this.schedulePersist();
+    return true;
+  }
+
   loadPreset(preset: SavedPreset) {
     if (preset.timezones.length > 0) {
       this.timezones = [...preset.timezones];

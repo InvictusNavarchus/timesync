@@ -20,6 +20,7 @@
     Bookmark,
     Plus,
     Trash2,
+    Pencil,
     Download,
     Upload
   } from 'lucide-svelte';
@@ -112,6 +113,33 @@
     isPresetsOpen = false;
   }
 
+  // Rename preset state
+  let editingPresetId = $state<string | null>(null);
+  let editingPresetName = $state('');
+
+  function startRenaming(preset: SavedPreset, e: MouseEvent) {
+    e.stopPropagation();
+    editingPresetId = preset.id;
+    editingPresetName = preset.name;
+  }
+
+  function commitRename(id: string) {
+    if (editingPresetName.trim()) {
+      syncState.renamePreset(id, editingPresetName);
+    }
+    cancelRename();
+  }
+
+  function cancelRename() {
+    editingPresetId = null;
+    editingPresetName = '';
+  }
+
+  function focusInput(node: HTMLInputElement) {
+    node.focus();
+    node.select();
+  }
+
   function handleExportJson() {
     const state = syncState.getExportState();
     const jsonStr = exportStateJson(state);
@@ -161,6 +189,11 @@
   }
   if (!target.closest('.presets-menu-container')) {
     isPresetsOpen = false;
+    cancelRename();
+  } else if (!target.closest('.preset-item.is-editing') && !target.closest('.preset-action-btn')) {
+    if (editingPresetId) {
+      cancelRename();
+    }
   }
 }} />
 
@@ -367,32 +400,75 @@
                   <div class="presets-empty">No saved boards yet</div>
                 {:else}
                   {#each syncState.presets as preset (preset.id)}
-                    <div class="preset-item">
-                      <button
-                        type="button"
-                        class="preset-load-btn"
-                        onclick={() => handleLoadPreset(preset)}
-                      >
-                        <span class="preset-title">{preset.name}</span>
-                        <span class="preset-meta">
-                          {preset.timezones.length} {preset.timezones.length === 1 ? 'zone' : 'zones'}
-                          {#if preset.meeting}
-                            · {Math.round((preset.meeting.endHourIndex - preset.meeting.startHourIndex) * 60)}m meet
-                          {/if}
-                          {#if preset.pinnedDate}
-                            · {preset.pinnedDate}
-                          {/if}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        class="preset-del-btn"
-                        onclick={() => syncState.deletePreset(preset.id)}
-                        title="Delete board"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    {#if editingPresetId === preset.id}
+                      <div class="preset-item is-editing">
+                        <input
+                          type="text"
+                          bind:value={editingPresetName}
+                          class="preset-rename-input"
+                          use:focusInput
+                          onkeydown={(e) => {
+                            if (e.key === 'Enter') commitRename(preset.id);
+                            if (e.key === 'Escape') cancelRename();
+                          }}
+                        />
+                        <div class="preset-item-actions">
+                          <button
+                            type="button"
+                            class="preset-action-btn confirm"
+                            onclick={() => commitRename(preset.id)}
+                            title="Save name"
+                          >
+                            <Check size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            class="preset-action-btn cancel"
+                            onclick={cancelRename}
+                            title="Cancel rename"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    {:else}
+                      <div class="preset-item">
+                        <button
+                          type="button"
+                          class="preset-load-btn"
+                          onclick={() => handleLoadPreset(preset)}
+                        >
+                          <span class="preset-title">{preset.name}</span>
+                          <span class="preset-meta">
+                            {preset.timezones.length} {preset.timezones.length === 1 ? 'zone' : 'zones'}
+                            {#if preset.meeting}
+                              · {Math.round((preset.meeting.endHourIndex - preset.meeting.startHourIndex) * 60)}m meet
+                            {/if}
+                            {#if preset.pinnedDate}
+                              · {preset.pinnedDate}
+                            {/if}
+                          </span>
+                        </button>
+                        <div class="preset-item-actions">
+                          <button
+                            type="button"
+                            class="preset-action-btn"
+                            onclick={(e) => startRenaming(preset, e)}
+                            title="Rename board"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            class="preset-action-btn danger"
+                            onclick={() => syncState.deletePreset(preset.id)}
+                            title="Delete board"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    {/if}
                   {/each}
                 {/if}
               </div>
@@ -1077,23 +1153,62 @@
     color: var(--text-muted);
   }
 
-  .preset-del-btn {
+  .preset-item.is-editing {
+    background: var(--bg-surface-alt);
+    padding: 5px 8px;
+    gap: 6px;
+  }
+
+  .preset-rename-input {
+    flex: 1;
+    min-width: 0;
+    height: 26px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+    padding: 0 6px;
+    font-size: 0.76rem;
+    color: var(--text-main);
+    outline: none;
+  }
+
+  .preset-rename-input:focus {
+    border-color: var(--text-muted);
+  }
+
+  .preset-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 6px;
+    flex-shrink: 0;
+  }
+
+  .preset-action-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     color: var(--text-muted);
     border-radius: 4px;
     cursor: pointer;
-    transition: color 0.15s ease;
-    margin-left: 4px;
-    flex-shrink: 0;
+    transition: color 0.12s ease, background 0.12s ease;
     background: none;
     border: none;
   }
 
-  .preset-del-btn:hover {
+  .preset-action-btn:hover {
+    color: var(--text-main);
+    background: var(--bg-surface);
+  }
+
+  .preset-action-btn.confirm:hover {
+    color: #16a34a;
+  }
+
+  .preset-action-btn.cancel:hover,
+  .preset-action-btn.danger:hover {
     color: #ef4444;
   }
 
