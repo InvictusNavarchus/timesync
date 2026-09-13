@@ -19,7 +19,6 @@
   // Search state
   let searchQuery = $state('');
   let isSearchFocused = $state(false);
-  let searchInputRef = $state<HTMLInputElement | null>(null);
 
   // Palette popup state
   let isPaletteOpen = $state(false);
@@ -261,7 +260,6 @@
   <!-- Right: 300px Inline Search Bar -->
   <div class="search-box">
     <input
-      bind:this={searchInputRef}
       type="text"
       bind:value={searchQuery}
       onfocus={() => (isSearchFocused = true)}
