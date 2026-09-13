@@ -2,197 +2,185 @@
   import { syncState } from '$lib/state/timesync.svelte';
   import { onDestroy } from 'svelte';
 
+  const DEFAULT_DIAL_WIDTH = 32; // 32px per hour
+  const HALF_DIAL_WIDTH = 16;    // 16px per 30 minutes
+  const TOTAL_DIALS_WIDTH = 768; // 24 * 32px
+
   let trackRef = $state<HTMLDivElement | null>(null);
+
+  let isLocked = $state(false);
   let isDragging = $state(false);
-  let dragMode = $state<'create' | 'move' | 'resize-left' | 'resize-right'>('create');
-  let dragStartHour = $state(0);
-  let origStart = $state(0);
-  let origEnd = $state(0);
+  let dragSide = $state<'left' | 'right' | 'box' | null>(null);
+  let mouseX = $state(0);
+  let windowWidth = $state(DEFAULT_DIAL_WIDTH);
+  let dragStartX = $state(0);
+  let initialMouseX = $state(0);
+  let initialWidth = $state(DEFAULT_DIAL_WIDTH);
 
-  let leftPercent = $derived(
-    syncState.meeting ? (syncState.meeting.startHourIndex / 24) * 100 : 0
-  );
-
-  let widthPercent = $derived(
-    syncState.meeting
-      ? ((syncState.meeting.endHourIndex - syncState.meeting.startHourIndex) / 24) * 100
-      : 0
-  );
-
-  let durationText = $derived.by(() => {
-    if (!syncState.meeting) return '';
-    const diff = syncState.meeting.endHourIndex - syncState.meeting.startHourIndex;
-    return diff % 1 === 0 ? `${diff}h` : `${diff.toFixed(1)}h`;
+  // Sync state when meeting is set via URL or initialized
+  $effect(() => {
+    if (syncState.meeting) {
+      const startPx = (syncState.meeting.startHourIndex) * DEFAULT_DIAL_WIDTH;
+      const widthPx = (syncState.meeting.endHourIndex - syncState.meeting.startHourIndex) * DEFAULT_DIAL_WIDTH;
+      mouseX = startPx;
+      windowWidth = Math.max(HALF_DIAL_WIDTH, widthPx);
+      isLocked = true;
+    } else if (!isDragging && isLocked) {
+      isLocked = false;
+    }
   });
 
-  function getHourFromEvent(e: MouseEvent): number {
+  function getSnappedX(clientX: number): number {
     if (!trackRef) return 0;
     const rect = trackRef.getBoundingClientRect();
-    const rawRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    // Snap to 30-minute intervals (48 segments across 24 hours)
-    return Math.round(rawRatio * 48) / 2;
+    const rawX = Math.max(0, Math.min(TOTAL_DIALS_WIDTH - DEFAULT_DIAL_WIDTH, clientX - rect.left));
+    const dialIndex = Math.floor(rawX / DEFAULT_DIAL_WIDTH);
+    return dialIndex * DEFAULT_DIAL_WIDTH;
   }
 
-  function handleMouseMove(e: MouseEvent) {
-    if (!isDragging || !syncState.meeting) return;
-    const currentHour = getHourFromEvent(e);
-
-    if (dragMode === 'create') {
-      if (currentHour >= dragStartHour) {
-        syncState.meeting = {
-          startHourIndex: dragStartHour,
-          endHourIndex: Math.min(24, Math.max(currentHour, dragStartHour + 0.5))
-        };
-      } else {
-        syncState.meeting = {
-          startHourIndex: Math.max(0, currentHour),
-          endHourIndex: Math.max(currentHour + 0.5, dragStartHour)
-        };
-      }
-    } else if (dragMode === 'move') {
-      const delta = currentHour - dragStartHour;
-      const duration = origEnd - origStart;
-      let newStart = origStart + delta;
-      let newEnd = origEnd + delta;
-
-      if (newStart < 0) {
-        newStart = 0;
-        newEnd = duration;
-      }
-      if (newEnd > 24) {
-        newEnd = 24;
-        newStart = 24 - duration;
-      }
-
-      syncState.meeting = {
-        startHourIndex: Math.round(newStart * 2) / 2,
-        endHourIndex: Math.round(newEnd * 2) / 2
-      };
-    } else if (dragMode === 'resize-left') {
-      const newStart = Math.min(syncState.meeting.endHourIndex - 0.5, Math.max(0, currentHour));
-      syncState.meeting = {
-        startHourIndex: newStart,
-        endHourIndex: syncState.meeting.endHourIndex
-      };
-    } else if (dragMode === 'resize-right') {
-      const newEnd = Math.max(syncState.meeting.startHourIndex + 0.5, Math.min(24, currentHour));
-      syncState.meeting = {
-        startHourIndex: syncState.meeting.startHourIndex,
-        endHourIndex: newEnd
-      };
-    }
-  }
-
-  function handleMouseUp() {
-    if (isDragging) {
-      isDragging = false;
-      syncState.syncToUrl();
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    }
+  function handleTrackMouseMove(e: MouseEvent) {
+    if (isLocked || isDragging) return;
+    mouseX = getSnappedX(e.clientX);
+    windowWidth = DEFAULT_DIAL_WIDTH;
   }
 
   function handleTrackMouseDown(e: MouseEvent) {
     if (e.button !== 0) return;
-    const hour = getHourFromEvent(e);
-    dragStartHour = hour;
-    syncState.meeting = {
-      startHourIndex: hour,
-      endHourIndex: Math.min(24, hour + 1)
-    };
-    isDragging = true;
-    dragMode = 'create';
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+
+    if (!isLocked) {
+      // Lock into place
+      const snapped = getSnappedX(e.clientX);
+      mouseX = snapped;
+      windowWidth = DEFAULT_DIAL_WIDTH;
+      isLocked = true;
+      commitMeetingState();
+    } else {
+      // Click outside while locked clears selection
+      isLocked = false;
+      syncState.clearMeeting();
+    }
   }
 
   function handleBoxMouseDown(e: MouseEvent) {
-    if (e.button !== 0 || !syncState.meeting) return;
+    if (e.button !== 0) return;
     e.stopPropagation();
+
     isDragging = true;
-    dragMode = 'move';
-    dragStartHour = getHourFromEvent(e);
-    origStart = syncState.meeting.startHourIndex;
-    origEnd = syncState.meeting.endHourIndex;
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    dragSide = 'box';
+    dragStartX = e.clientX;
+    initialMouseX = mouseX;
+    initialWidth = windowWidth;
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
   }
 
-  function handleLeftHandleMouseDown(e: MouseEvent) {
-    if (e.button !== 0 || !syncState.meeting) return;
+  function handleResizeMouseDown(e: MouseEvent, side: 'left' | 'right') {
+    if (e.button !== 0) return;
     e.stopPropagation();
+
     isDragging = true;
-    dragMode = 'resize-left';
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    dragSide = side;
+    dragStartX = e.clientX;
+    initialMouseX = mouseX;
+    initialWidth = windowWidth;
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
   }
 
-  function handleRightHandleMouseDown(e: MouseEvent) {
-    if (e.button !== 0 || !syncState.meeting) return;
-    e.stopPropagation();
-    isDragging = true;
-    dragMode = 'resize-right';
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+  function handleGlobalMouseMove(e: MouseEvent) {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+
+    if (dragSide === 'box') {
+      const snappedDelta = Math.round(dx / HALF_DIAL_WIDTH) * HALF_DIAL_WIDTH;
+      const newX = Math.max(0, Math.min(TOTAL_DIALS_WIDTH - windowWidth, initialMouseX + snappedDelta));
+      mouseX = newX;
+      commitMeetingState();
+    } else if (dragSide === 'right') {
+      const snappedDelta = Math.round(dx / HALF_DIAL_WIDTH) * HALF_DIAL_WIDTH;
+      const newWidth = Math.max(HALF_DIAL_WIDTH, Math.min(TOTAL_DIALS_WIDTH - mouseX, initialWidth + snappedDelta));
+      windowWidth = newWidth;
+      commitMeetingState();
+    } else if (dragSide === 'left') {
+      const snappedDelta = Math.round(dx / HALF_DIAL_WIDTH) * HALF_DIAL_WIDTH;
+      const potentialNewX = initialMouseX + snappedDelta;
+      const potentialWidth = initialWidth - snappedDelta;
+      if (potentialNewX >= 0 && potentialWidth >= HALF_DIAL_WIDTH) {
+        mouseX = potentialNewX;
+        windowWidth = potentialWidth;
+        commitMeetingState();
+      }
+    }
+  }
+
+  function handleGlobalMouseUp() {
+    isDragging = false;
+    dragSide = null;
+    commitMeetingState();
+    window.removeEventListener('mousemove', handleGlobalMouseMove);
+    window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }
+
+  function commitMeetingState() {
+    const startHour = mouseX / DEFAULT_DIAL_WIDTH;
+    const endHour = (mouseX + windowWidth) / DEFAULT_DIAL_WIDTH;
+    syncState.setMeeting({
+      startHourIndex: startHour,
+      endHourIndex: endHour
+    });
   }
 
   onDestroy(() => {
     if (typeof window !== 'undefined') {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
     }
   });
 </script>
 
-<!-- The outer overlay sits across the dials column with padding matching the dials strip -->
+<!-- The overlay container is aligned with the 768px dials column -->
 <div
-  class="overlay-outer"
+  class="overlay-container"
+  onmousemove={handleTrackMouseMove}
   onmousedown={handleTrackMouseDown}
   role="presentation"
 >
   <div class="overlay-track" bind:this={trackRef}>
-    {#if syncState.meeting}
+    <div
+      class="selection-frame"
+      class:is-locked={isLocked}
+      style:left="{mouseX}px"
+      style:width="{windowWidth}px"
+      onmousedown={handleBoxMouseDown}
+      role="presentation"
+    >
+      <!-- Left resize handle -->
       <div
-        class="selection-box"
-        style:left="{leftPercent}%"
-        style:width="{widthPercent}%"
-        onmousedown={handleBoxMouseDown}
-        role="slider"
-        aria-label="Meeting selection window"
-        aria-valuemin={0}
-        aria-valuemax={24}
-        aria-valuenow={syncState.meeting.startHourIndex}
-        tabindex="0"
-      >
-        <div
-          class="handle handle-left"
-          onmousedown={handleLeftHandleMouseDown}
-          role="presentation"
-        ></div>
+        class="resize-handle left"
+        onmousedown={(e) => handleResizeMouseDown(e, 'left')}
+        role="presentation"
+      ></div>
 
-        <div class="selection-pill">
-          <span class="duration-text">{durationText}</span>
-        </div>
-
-        <div
-          class="handle handle-right"
-          onmousedown={handleRightHandleMouseDown}
-          role="presentation"
-        ></div>
-      </div>
-    {/if}
+      <!-- Right resize handle -->
+      <div
+        class="resize-handle right"
+        onmousedown={(e) => handleResizeMouseDown(e, 'right')}
+        role="presentation"
+      ></div>
+    </div>
   </div>
 </div>
 
 <style>
-  .overlay-outer {
+  .overlay-container {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 300px; /* Offset to align precisely with dials column */
-    right: 0;
-    padding: 0 10px; /* Aligns with dials-strip padding: 6px 10px */
-    cursor: crosshair;
+    left: 360px; /* Aligned with 340px sidebar + 8px gap + 12px padding */
+    width: 768px;
+    cursor: pointer;
     z-index: 20;
     user-select: none;
   }
@@ -203,57 +191,39 @@
     height: 100%;
   }
 
-  .selection-box {
+  /* Red dotted border matching original */
+  .selection-frame {
     position: absolute;
     top: 0;
     bottom: 0;
-    background: var(--scrubber-bg);
-    border-left: 2px dashed var(--scrubber-border);
-    border-right: 2px dashed var(--scrubber-border);
-    cursor: move;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 6px;
-    z-index: 25;
-    transition: background 0.1s ease;
+    border: 2px dotted #ef4444;
+    border-radius: 6px;
+    pointer-events: all;
+    cursor: grab;
+    transition: border-color 0.15s ease;
+    background: rgba(239, 68, 68, 0.04);
   }
 
-  .selection-box:hover {
-    background: rgba(34, 197, 94, 0.2);
+  .selection-frame.is-locked {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.05);
   }
 
-  .selection-pill {
-    background: var(--bg-surface);
-    border: 1px solid var(--scrubber-border);
-    box-shadow: var(--shadow-sm);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--text-main);
-    pointer-events: none;
-    white-space: nowrap;
-  }
-
-  .handle {
+  /* Resize handles */
+  .resize-handle {
     position: absolute;
     top: 0;
     bottom: 0;
     width: 8px;
     cursor: ew-resize;
-    z-index: 30;
+    z-index: 25;
   }
 
-  .handle-left {
+  .resize-handle.left {
     left: -4px;
   }
 
-  .handle-right {
+  .resize-handle.right {
     right: -4px;
-  }
-
-  .handle:hover {
-    background: rgba(34, 197, 94, 0.4);
   }
 </style>

@@ -1,53 +1,66 @@
 <script lang="ts">
   import type { DialCell, TimeFormat } from '$lib/domain/types';
 
-  let { dial, timeFormat }: { dial: DialCell; timeFormat: TimeFormat } = $props();
-
-  let [dow, datePart] = $derived(
-    dial.dayLabel ? dial.dayLabel.split(', ') : ['', '']
-  );
+  let {
+    dial,
+    timeFormat,
+    isFirst,
+    isLast
+  }: {
+    dial: DialCell;
+    timeFormat: TimeFormat;
+    isFirst?: boolean;
+    isLast?: boolean;
+  } = $props();
 </script>
 
 <div
   class="dial-cell dial-{dial.circleType}"
   class:is-new-day={dial.isNewDay}
+  class:rounded-l={isFirst}
+  class:rounded-r={isLast}
   title={dial.dayLabel ? `${dial.dayLabel} at ${dial.timeLabel} ${dial.period || ''}` : `${dial.timeLabel} ${dial.period || ''}`}
 >
-  {#if dial.isNewDay && dial.dayLabel}
-    <div class="new-day-wrapper">
-      <span class="new-day-dow">{dow.toUpperCase()}</span>
-      <span class="new-day-date">{datePart}</span>
+  {#if dial.isNewDay}
+    <div class="new-day-stack">
+      <span class="nd-dow">{dial.dowLabel?.toUpperCase() || ''}</span>
+      <span class="nd-month">{dial.monthLabel || ''}</span>
+      <span class="nd-num">{dial.dayNum || ''}</span>
     </div>
   {:else}
-    <span class="time-label">{dial.timeLabel}</span>
+    <span class="dial-hour">{dial.timeLabel}</span>
     {#if timeFormat === '12h' && dial.period}
-      <span class="time-period">{dial.period}</span>
+      <span class="dial-period">{dial.period.toLowerCase()}</span>
     {/if}
   {/if}
 </div>
 
 <style>
   .dial-cell {
+    width: 32px;
+    height: 38px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    min-height: 38px;
-    border-radius: 4px;
     user-select: none;
-    transition: transform 0.1s ease, filter 0.1s ease;
-    padding: 2px 1px;
-    text-align: center;
+    line-height: 1;
     position: relative;
+    padding: 1px;
+    flex-shrink: 0;
   }
 
-  .dial-cell:hover {
-    filter: brightness(0.92);
-    z-index: 2;
+  .rounded-l {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
   }
 
-  /* Color types based on daylight phase tokens */
+  .rounded-r {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+  }
+
+  /* Daylight Color Phases */
   .dial-dawn {
     background: var(--dial-dawn);
     color: var(--dial-text-dark);
@@ -56,7 +69,6 @@
   .dial-midday {
     background: var(--dial-midday);
     color: var(--dial-text-dark);
-    border: 1px solid var(--border-subtle);
   }
 
   .dial-dusk {
@@ -65,48 +77,51 @@
   }
 
   .dial-night {
-    background: var(--dial-night);
+    background: var(--dial-midnight);
     color: var(--dial-text-light);
   }
 
   .dial-newday {
     background: var(--dial-newday);
     color: var(--dial-text-light);
-    font-weight: 700;
+    font-weight: bold;
   }
 
-  .time-label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
+  /* Text inside cells */
+  .dial-hour {
+    font-size: 0.75rem;
+    font-weight: 500;
   }
 
-  .time-period {
+  .dial-period {
     font-size: 0.55rem;
-    line-height: 1;
     opacity: 0.75;
-    text-transform: uppercase;
   }
 
-  .new-day-wrapper {
+  /* Stacked New Day */
+  .new-day-stack {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    line-height: 1;
     gap: 1px;
+    line-height: 1;
   }
 
-  .new-day-dow {
+  .nd-dow {
     font-size: 0.55rem;
+    color: var(--text-muted);
+    font-weight: 600;
     letter-spacing: 0.05em;
-    opacity: 0.85;
   }
 
-  .new-day-date {
+  .nd-month {
+    font-size: 0.62rem;
+    font-weight: 600;
+  }
+
+  .nd-num {
     font-size: 0.65rem;
     font-weight: 700;
-    white-space: nowrap;
   }
 </style>
