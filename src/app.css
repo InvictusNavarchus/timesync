@@ -1,0 +1,153 @@
+:root {
+  --bg-app: #f4f4f5;
+  --bg-surface: #ffffff;
+  --bg-surface-alt: #fafafa;
+  --border-primary: #e4e4e7;
+  --text-main: #18181b;
+  --text-muted: #a1a1aa;
+  --text-gray: #9ca3af;
+
+  /* Dial Palette: Gray (Default) */
+  --dial-dawn: #ebebeb;
+  --dial-midday: #f4f4f5;
+  --dial-dusk: #e4e4e7;
+  --dial-midnight: #52525b;
+  --dial-newday: #27272a;
+  --dial-text-dark: #18181b;
+  --dial-text-light: #ffffff;
+}
+
+[data-theme="dark"] {
+  --bg-app: #121214;
+  --bg-surface: #18181b;
+  --bg-surface-alt: #27272a;
+  --border-primary: #3f3f46;
+  --text-main: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-gray: #71717a;
+
+  /* Gray */
+  --dial-dawn: #52525b;
+  --dial-midday: #71717a;
+  --dial-dusk: #3f3f46;
+  --dial-midnight: #212125;
+  --dial-newday: #09090b;
+  --dial-text-dark: #f4f4f5;
+  --dial-text-light: #f4f4f5;
+}
+
+/* Light / Dark Dial Palettes */
+[data-palette="teal"] {
+  --dial-dawn: #ccfbf1;
+  --dial-midday: #f0fdfa;
+  --dial-dusk: #99f6e4;
+  --dial-midnight: #0f766e;
+  --dial-newday: #134e4a;
+}
+[data-theme="dark"][data-palette="teal"] {
+  --dial-dawn: #0d9488;
+  --dial-midday: #14b8a6;
+  --dial-dusk: #0f766e;
+  --dial-midnight: #115e59;
+  --dial-newday: #042f2e;
+}
+
+[data-palette="indigo"] {
+  --dial-dawn: #e0e7ff;
+  --dial-midday: #eef2ff;
+  --dial-dusk: #c7d2fe;
+  --dial-midnight: #4338ca;
+  --dial-newday: #312e81;
+}
+[data-theme="dark"][data-palette="indigo"] {
+  --dial-dawn: #4f46e5;
+  --dial-midday: #6366f1;
+  --dial-dusk: #4338ca;
+  --dial-midnight: #3730a3;
+  --dial-newday: #1e1b4b;
+}
+
+[data-palette="pink"] {
+  --dial-dawn: #fce7f3;
+  --dial-midday: #fdf2f8;
+  --dial-dusk: #fbcfe8;
+  --dial-midnight: #be185d;
+  --dial-newday: #831843;
+}
+[data-theme="dark"][data-palette="pink"] {
+  --dial-dawn: #db2777;
+  --dial-midday: #ec4899;
+  --dial-dusk: #be185d;
+  --dial-midnight: #9d174d;
+  --dial-newday: #500724;
+}
+
+[data-palette="blue"] {
+  --dial-dawn: #dbeafe;
+  --dial-midday: #eff6ff;
+  --dial-dusk: #bfdbfe;
+  --dial-midnight: #1d4ed8;
+  --dial-newday: #1e3a8a;
+}
+[data-theme="dark"][data-palette="blue"] {
+  --dial-dawn: #2563eb;
+  --dial-midday: #3b82f6;
+  --dial-dusk: #1d4ed8;
+  --dial-midnight: #1e40af;
+  --dial-newday: #172554;
+}
+
+[data-palette="purple"] {
+  --dial-dawn: #f3e8ff;
+  --dial-midday: #faf5ff;
+  --dial-dusk: #e9d5ff;
+  --dial-midnight: #7e22ce;
+  --dial-newday: #581c87;
+}
+[data-theme="dark"][data-palette="purple"] {
+  --dial-dawn: #9333ea;
+  --dial-midday: #a855f7;
+  --dial-dusk: #7e22ce;
+  --dial-midnight: #6b21a8;
+  --dial-newday: #3b0764;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+.main-bg-grid {
+  background-image: url("/grid.svg");
+  z-index: -10;
+  position: fixed;
+  inset: 0;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .main-bg-grid {
+  opacity: 0.12;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
