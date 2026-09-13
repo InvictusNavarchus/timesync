@@ -485,3 +485,26 @@ export function searchTimezones(query: string, limit = 20): TimezoneSearchItem[]
   const results = fuse.search(q, { limit });
   return results.map((r) => r.item);
 }
+
+export function getTimezoneSearchItem(id: string): TimezoneSearchItem {
+  const all = getAllSearchableTimezones();
+  const found = all.find((item) => item.id === id);
+  if (found) return found;
+
+  const { region, city } = parseTimezoneId(id);
+  const luxonNow = DateTime.now().setZone(id);
+  return {
+    id,
+    city,
+    region,
+    country: '',
+    countries: [],
+    countryCodes: [],
+    abbr: luxonNow.isValid ? luxonNow.toFormat('ZZZZ') : 'UTC',
+    descriptor: '',
+    tzNames: [],
+    offsetStr: luxonNow.isValid ? `UTC${luxonNow.toFormat('ZZ')}` : 'UTC',
+    aliases: []
+  };
+}
+
