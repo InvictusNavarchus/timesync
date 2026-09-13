@@ -12,7 +12,11 @@ export default defineConfig({
 		sveltekit(),
 		cfHeaders({
 			rules: [
-				securityHeadersPreset('/*'),
+				securityHeadersPreset('/*', {
+					csp: {
+						scriptSrc: ["'self'", "'unsafe-inline'"]
+					}
+				}),
 				immutableAssetsPreset('/_app/immutable/*'),
 				noIndexPreviewDomainPreset()
 			]
