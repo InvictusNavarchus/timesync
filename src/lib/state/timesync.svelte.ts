@@ -1,6 +1,14 @@
 import { DateTime } from 'luxon';
 import type { TimeFormat, Palette, Theme, SortStrategy, MeetingSelection } from '../domain/types';
 import { getSystemTimezone } from '../domain/timezone';
+import {
+  STORAGE_KEY,
+  loadPersisted,
+  savePersisted,
+  updateRecentsList,
+  type PersistedState,
+  type SavedPreset
+} from './persistence';
 
 export class TimeSyncState {
   timezones = $state<string[]>([]);
@@ -14,11 +22,17 @@ export class TimeSyncState {
   searchOpen = $state<boolean>(false);
   now = $state<DateTime>(DateTime.now());
 
+  recents = $state<string[]>([]);
+  presets = $state<SavedPreset[]>([]);
+
   private initialized = false;
+  private persistedHasTheme = false;
+  private persistTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.homeZone = getSystemTimezone();
+      this.hydrateFromStorage();
       this.initFromUrl();
       this.applyDomAttributes();
       this.syncToUrl();
@@ -31,8 +45,74 @@ export class TimeSyncState {
         this.initFromUrl();
         this.applyDomAttributes();
       });
+
+      window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY) {
+          this.rehydrateFromStorage();
+        }
+      });
     } else {
       this.timezones = ['UTC'];
+    }
+  }
+
+  /**
+   * Hydrate state from localStorage before URL parameters are applied.
+   * Explicit URL query parameters will later take precedence over stored state.
+   */
+  hydrateFromStorage() {
+    const stored = loadPersisted();
+    if (!stored) return;
+
+    if (stored.recents) this.recents = stored.recents;
+    if (stored.presets) this.presets = stored.presets;
+
+    if (stored.prefs.theme) {
+      this.theme = stored.prefs.theme;
+      this.persistedHasTheme = true;
+    }
+    if (stored.prefs.palette) this.palette = stored.prefs.palette;
+    if (stored.prefs.timeFormat) this.timeFormat = stored.prefs.timeFormat;
+    if (stored.prefs.sortStrategy) this.sortStrategy = stored.prefs.sortStrategy;
+    if (stored.prefs.homeZone) this.homeZone = stored.prefs.homeZone;
+
+    if (stored.lastBoard && stored.lastBoard.timezones.length > 0) {
+      this.timezones = stored.lastBoard.timezones;
+      this.homeZone = stored.lastBoard.homeZone || stored.lastBoard.timezones[0];
+      if (stored.lastBoard.meeting) {
+        this.meeting = stored.lastBoard.meeting;
+      }
+    }
+  }
+
+  /**
+   * Cross-tab live synchronization when another browser tab modifies storage.
+   */
+  rehydrateFromStorage() {
+    const stored = loadPersisted();
+    if (!stored) return;
+
+    this.recents = stored.recents || [];
+    this.presets = stored.presets || [];
+
+    let domChanged = false;
+
+    if (stored.prefs.theme && stored.prefs.theme !== this.theme) {
+      this.theme = stored.prefs.theme;
+      domChanged = true;
+    }
+    if (stored.prefs.palette && stored.prefs.palette !== this.palette) {
+      this.palette = stored.prefs.palette;
+      domChanged = true;
+    }
+    if (domChanged) {
+      this.applyDomAttributes();
+    }
+    if (stored.prefs.timeFormat && stored.prefs.timeFormat !== this.timeFormat) {
+      this.timeFormat = stored.prefs.timeFormat;
+    }
+    if (stored.prefs.sortStrategy && stored.prefs.sortStrategy !== this.sortStrategy) {
+      this.sortStrategy = stored.prefs.sortStrategy;
     }
   }
 
@@ -55,16 +135,15 @@ export class TimeSyncState {
         this.timezones = parsed;
         this.homeZone = parsed[0];
       } else {
-        const system = getSystemTimezone();
+        const system = this.homeZone || getSystemTimezone();
         this.homeZone = system;
         this.timezones = [system];
       }
-    } else if (!this.initialized) {
-      // Default initial list: home + a few major hubs
-      const system = getSystemTimezone();
+    } else if (this.timezones.length === 0) {
+      // Default initial list if URL is bare and storage has no board
+      const system = this.homeZone || getSystemTimezone();
       this.homeZone = system;
       const defaults = [system, 'America/New_York', 'Europe/London', 'Asia/Tokyo', 'Australia/Sydney'];
-      // Remove duplicate of home
       this.timezones = Array.from(new Set(defaults));
     }
 
@@ -86,7 +165,7 @@ export class TimeSyncState {
     const themeParam = params.get('theme') as Theme;
     if (themeParam === 'dark' || themeParam === 'light') {
       this.theme = themeParam;
-    } else if (!this.initialized && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+    } else if (!this.initialized && !this.persistedHasTheme && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
       this.theme = 'dark';
     }
 
@@ -101,6 +180,9 @@ export class TimeSyncState {
       if (!isNaN(start) && !isNaN(end) && start >= 0 && end <= 24 && end > start) {
         this.meeting = { startHourIndex: start, endHourIndex: end };
       }
+    } else if (tzParam) {
+      // Shared links specifying timezones without meeting explicitly clear meeting
+      this.meeting = null;
     }
 
     this.initialized = true;
@@ -126,6 +208,41 @@ export class TimeSyncState {
 
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState(null, '', newUrl);
+  }
+
+  /**
+   * Debounced persistence to avoid spamming localStorage during continuous interactions
+   */
+  schedulePersist() {
+    if (typeof window === 'undefined') return;
+    if (this.persistTimeout) {
+      clearTimeout(this.persistTimeout);
+    }
+    this.persistTimeout = setTimeout(() => {
+      this.persistNow();
+    }, 300);
+  }
+
+  persistNow() {
+    if (typeof window === 'undefined') return;
+    const state: PersistedState = {
+      version: 1,
+      prefs: {
+        theme: this.theme,
+        palette: this.palette,
+        timeFormat: this.timeFormat,
+        sortStrategy: this.sortStrategy,
+        homeZone: this.homeZone
+      },
+      lastBoard: {
+        timezones: [...this.timezones],
+        homeZone: this.homeZone,
+        meeting: this.meeting ? { ...this.meeting } : null
+      },
+      recents: [...this.recents],
+      presets: [...this.presets]
+    };
+    savePersisted(state);
   }
 
   private applyDomAttributes() {
@@ -154,7 +271,12 @@ export class TimeSyncState {
   addTimezone(ianaName: string) {
     if (!this.timezones.includes(ianaName)) {
       this.timezones = [...this.timezones, ianaName];
+      this.recents = updateRecentsList(this.recents, ianaName);
       this.syncToUrl();
+      this.schedulePersist();
+    } else {
+      this.recents = updateRecentsList(this.recents, ianaName);
+      this.schedulePersist();
     }
   }
 
@@ -165,6 +287,7 @@ export class TimeSyncState {
       this.homeZone = this.timezones[0];
     }
     this.syncToUrl();
+    this.schedulePersist();
   }
 
   setHome(ianaName: string) {
@@ -172,6 +295,7 @@ export class TimeSyncState {
     this.timezones = [ianaName, ...remaining];
     this.homeZone = ianaName;
     this.syncToUrl();
+    this.schedulePersist();
   }
 
   moveTimezone(index: number, direction: 'up' | 'down') {
@@ -185,28 +309,33 @@ export class TimeSyncState {
     this.homeZone = updated[0];
     this.sortStrategy = 'custom';
     this.syncToUrl();
+    this.schedulePersist();
   }
 
   setTimeFormat(fmt: TimeFormat) {
     this.timeFormat = fmt;
     this.syncToUrl();
+    this.schedulePersist();
   }
 
   setPalette(palette: Palette) {
     this.palette = palette;
     this.applyDomAttributes();
     this.syncToUrl();
+    this.schedulePersist();
   }
 
   toggleTheme() {
     this.theme = this.theme === 'light' ? 'dark' : 'light';
     this.applyDomAttributes();
     this.syncToUrl();
+    this.schedulePersist();
   }
 
   setSortStrategy(sort: SortStrategy) {
     this.sortStrategy = sort;
     this.syncToUrl();
+    this.schedulePersist();
   }
 
   setSelectedDate(isoDate: string) {
@@ -233,11 +362,103 @@ export class TimeSyncState {
     if (syncUrl) {
       this.syncToUrl();
     }
+    this.schedulePersist();
   }
 
   clearMeeting() {
     this.meeting = null;
     this.syncToUrl();
+    this.schedulePersist();
+  }
+
+  // --- Presets & Backup Management ---
+
+  savePreset(name?: string, pinCurrentDate = false): SavedPreset {
+    const defaultName = `Board ${this.presets.length + 1}`;
+    const presetName = name?.trim() || defaultName;
+    const newPreset: SavedPreset = {
+      id:
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: presetName,
+      timezones: [...this.timezones],
+      homeZone: this.homeZone,
+      meeting: this.meeting ? { ...this.meeting } : null,
+      pinnedDate: pinCurrentDate ? this.selectedDate : null,
+      createdAt: Date.now()
+    };
+    this.presets = [newPreset, ...this.presets];
+    this.schedulePersist();
+    return newPreset;
+  }
+
+  deletePreset(id: string) {
+    this.presets = this.presets.filter((p) => p.id !== id);
+    this.schedulePersist();
+  }
+
+  loadPreset(preset: SavedPreset) {
+    if (preset.timezones.length > 0) {
+      this.timezones = [...preset.timezones];
+      this.homeZone = preset.homeZone || preset.timezones[0];
+    }
+    this.meeting = preset.meeting ? { ...preset.meeting } : null;
+    if (preset.pinnedDate && DateTime.fromISO(preset.pinnedDate).isValid) {
+      this.selectedDate = preset.pinnedDate;
+    } else {
+      this.selectedDate = DateTime.now().toISODate()!;
+    }
+    this.syncToUrl();
+    this.schedulePersist();
+  }
+
+  importBackup(imported: PersistedState) {
+    this.recents = imported.recents || [];
+    this.presets = imported.presets || [];
+    if (imported.prefs.theme) {
+      this.theme = imported.prefs.theme;
+    }
+    if (imported.prefs.palette) {
+      this.palette = imported.prefs.palette;
+    }
+    this.applyDomAttributes();
+    if (imported.prefs.timeFormat) {
+      this.timeFormat = imported.prefs.timeFormat;
+    }
+    if (imported.prefs.sortStrategy) {
+      this.sortStrategy = imported.prefs.sortStrategy;
+    }
+    if (imported.prefs.homeZone) {
+      this.homeZone = imported.prefs.homeZone;
+    }
+    if (imported.lastBoard && imported.lastBoard.timezones.length > 0) {
+      this.timezones = [...imported.lastBoard.timezones];
+      this.homeZone = imported.lastBoard.homeZone || this.timezones[0];
+      this.meeting = imported.lastBoard.meeting ? { ...imported.lastBoard.meeting } : null;
+    }
+    this.syncToUrl();
+    this.persistNow();
+  }
+
+  getExportState(): PersistedState {
+    return {
+      version: 1,
+      prefs: {
+        theme: this.theme,
+        palette: this.palette,
+        timeFormat: this.timeFormat,
+        sortStrategy: this.sortStrategy,
+        homeZone: this.homeZone
+      },
+      lastBoard: {
+        timezones: [...this.timezones],
+        homeZone: this.homeZone,
+        meeting: this.meeting ? { ...this.meeting } : null
+      },
+      recents: [...this.recents],
+      presets: [...this.presets]
+    };
   }
 }
 
