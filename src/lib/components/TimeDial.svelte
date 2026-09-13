@@ -16,10 +16,11 @@
 
 <div
   class="dial-cell dial-{dial.circleType}"
-  class:is-new-day={dial.isNewDay}
   class:rounded-l={isFirst}
   class:rounded-r={isLast}
-  title={dial.dayLabel ? `${dial.dayLabel} at ${dial.timeLabel} ${dial.period || ''}` : `${dial.timeLabel} ${dial.period || ''}`}
+  title={dial.dayLabel
+    ? `${dial.dayLabel} at ${dial.timeLabel}${timeFormat === '12h' && dial.period ? ` ${dial.period}` : ''}`
+    : `${dial.timeLabel}${timeFormat === '12h' && dial.period ? ` ${dial.period}` : ''}`}
 >
   {#if dial.isNewDay}
     <div class="new-day-stack">
