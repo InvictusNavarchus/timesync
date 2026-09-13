@@ -12,6 +12,7 @@ export class TimeSyncState {
   sortStrategy = $state<SortStrategy>('custom');
   meeting = $state<MeetingSelection | null>(null);
   searchOpen = $state<boolean>(false);
+  now = $state<DateTime>(DateTime.now());
 
   private initialized = false;
 
@@ -20,6 +21,11 @@ export class TimeSyncState {
       this.homeZone = getSystemTimezone();
       this.initFromUrl();
       this.applyDomAttributes();
+      this.syncToUrl();
+
+      setInterval(() => {
+        this.now = DateTime.now();
+      }, 30000);
 
       window.addEventListener('popstate', () => {
         this.initFromUrl();
@@ -37,10 +43,21 @@ export class TimeSyncState {
 
     const tzParam = params.get('tz');
     if (tzParam) {
-      const parsed = tzParam.split(',').filter(Boolean);
+      const parsed = Array.from(
+        new Set(
+          tzParam
+            .split(',')
+            .map((t) => t.trim())
+            .filter((tz) => Boolean(tz) && DateTime.now().setZone(tz).isValid)
+        )
+      );
       if (parsed.length > 0) {
         this.timezones = parsed;
         this.homeZone = parsed[0];
+      } else {
+        const system = getSystemTimezone();
+        this.homeZone = system;
+        this.timezones = [system];
       }
     } else if (!this.initialized) {
       // Default initial list: home + a few major hubs
@@ -99,9 +116,7 @@ export class TimeSyncState {
     params.set('date', this.selectedDate);
     params.set('fmt', this.timeFormat);
     params.set('palette', this.palette);
-    if (this.theme === 'dark') {
-      params.set('theme', 'dark');
-    }
+    params.set('theme', this.theme);
     if (this.sortStrategy !== 'custom') {
       params.set('sort', this.sortStrategy);
     }
@@ -213,9 +228,11 @@ export class TimeSyncState {
     this.setSelectedDate(DateTime.now().toISODate()!);
   }
 
-  setMeeting(meeting: MeetingSelection | null) {
+  setMeeting(meeting: MeetingSelection | null, syncUrl = true) {
     this.meeting = meeting;
-    this.syncToUrl();
+    if (syncUrl) {
+      this.syncToUrl();
+    }
   }
 
   clearMeeting() {
