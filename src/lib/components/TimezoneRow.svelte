@@ -12,15 +12,14 @@
     isHome: boolean;
   } = $props();
 
-  let isRowHovered = $state(false);
-
   let rowData = $derived(
     getTimezoneRowData(
       timezoneId,
       syncState.homeZone,
       syncState.selectedDate,
       syncState.timeFormat,
-      syncState.meeting
+      syncState.meeting,
+      syncState.now
     )
   );
 
@@ -30,25 +29,14 @@
 <div
   class="timezone-row"
   class:is-home={isHome}
-  onmouseenter={() => (isRowHovered = true)}
-  onmouseleave={() => (isRowHovered = false)}
   role="group"
 >
   <!-- Left Side: City Info Sidebar (340px) -->
   <div class="info-cell">
     <div class="left-meta">
-      <!-- Icon or Offset (swaps with trash on hover) -->
+      <!-- Icon or Offset (swaps with trash on hover or focus) -->
       <div class="action-slot">
-        {#if isRowHovered && !isHome}
-          <button
-            type="button"
-            class="trash-btn"
-            onclick={() => syncState.removeTimezone(timezoneId)}
-            title="Remove timezone"
-          >
-            <Trash2 size={18} strokeWidth={1.75} />
-          </button>
-        {:else if isHome}
+        {#if isHome}
           <div class="home-icon" title="Home Timezone">
             <Home size={18} strokeWidth={1.75} />
           </div>
@@ -60,6 +48,15 @@
           >
             {rowData.diffFromHomeFormatted}
           </div>
+          <button
+            type="button"
+            class="trash-btn"
+            onclick={() => syncState.removeTimezone(timezoneId)}
+            title="Remove timezone"
+            aria-label="Remove {rowData.city} timezone"
+          >
+            <Trash2 size={18} strokeWidth={1.75} />
+          </button>
         {/if}
       </div>
 
@@ -142,6 +139,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative;
   }
 
   .home-icon {
@@ -156,8 +154,19 @@
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-    transition: color 0.15s ease;
+    transition: color 0.15s ease, opacity 0.15s ease;
     padding: 2px;
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .timezone-row:hover .trash-btn,
+  .trash-btn:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .trash-btn:hover {
@@ -169,6 +178,12 @@
     font-weight: 500;
     font-family: monospace;
     color: var(--text-muted);
+    transition: opacity 0.15s ease;
+  }
+
+  .timezone-row:hover .diff-badge,
+  .action-slot:focus-within .diff-badge {
+    opacity: 0;
   }
 
   .diff-badge.positive {
