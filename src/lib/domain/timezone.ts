@@ -78,7 +78,8 @@ export function getConsecutiveDates(baseDateIso: string, count = 4): {
 export function buildRowDials(
   targetZone: string,
   homeAnchorDate: DateTime,
-  format: TimeFormat
+  format: TimeFormat,
+  isHome = false
 ): DialCell[] {
   const dials: DialCell[] = [];
   let prevDay: number | null = null;
@@ -88,8 +89,10 @@ export function buildRowDials(
     const homeStep = homeAnchorDate.plus({ hours: i });
     const targetTime = homeStep.setZone(targetZone);
 
-    // Day transition occurs on index 0 or when calendar day changes
-    const isNewDay = i === 0 || (prevDay !== null && targetTime.day !== prevDay);
+    // Day transition occurs on index 0 for home, or when calendar day rolls over into a new day
+    const isNewDay = isHome
+      ? i === 0
+      : (prevDay !== null && targetTime.day !== prevDay) || (i === 0 && targetTime.hour === 0);
     const dayLabel = isNewDay ? targetTime.toFormat('ccc, LLL d') : undefined;
     const monthLabel = isNewDay ? targetTime.toFormat('LLL') : undefined;
     const dayNum = isNewDay ? targetTime.toFormat('d') : undefined;
@@ -154,7 +157,8 @@ export function getTimezoneRowData(
   const abbr = nowTarget.toFormat('ZZZZ');
 
   const anchorDate = DateTime.fromISO(selectedDate, { zone: homeZone }).startOf('day');
-  const dials = buildRowDials(timezoneId, anchorDate, format);
+  const isHome = timezoneId === homeZone;
+  const dials = buildRowDials(timezoneId, anchorDate, format, isHome);
 
   let meetingTimeRange: TimezoneRowData['meetingTimeRange'];
   if (meeting) {
