@@ -99,10 +99,12 @@
   // Presets state
   let isPresetsOpen = $state(false);
   let newPresetName = $state('');
+  let pinCurrentDate = $state(false);
 
   function handleSavePreset() {
-    syncState.savePreset(newPresetName);
+    syncState.savePreset(newPresetName, pinCurrentDate);
     newPresetName = '';
+    pinCurrentDate = false;
   }
 
   function handleLoadPreset(preset: SavedPreset) {
@@ -329,24 +331,34 @@
 
               <!-- Save current board section -->
               <div class="preset-save-section">
-                <input
-                  type="text"
-                  bind:value={newPresetName}
-                  placeholder="New board name..."
-                  class="preset-name-input"
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter') handleSavePreset();
-                  }}
-                />
-                <button
-                  type="button"
-                  class="preset-save-btn"
-                  onclick={handleSavePreset}
-                  title="Save current board"
-                >
-                  <Plus size={13} />
-                  <span>Save</span>
-                </button>
+                <div class="preset-save-row">
+                  <input
+                    type="text"
+                    bind:value={newPresetName}
+                    placeholder="New board name..."
+                    class="preset-name-input"
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter') handleSavePreset();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    class="preset-save-btn"
+                    onclick={handleSavePreset}
+                    title="Save current board"
+                  >
+                    <Plus size={13} />
+                    <span>Save</span>
+                  </button>
+                </div>
+                <label class="preset-pin-label">
+                  <input
+                    type="checkbox"
+                    bind:checked={pinCurrentDate}
+                    class="preset-pin-checkbox"
+                  />
+                  <span>Pin current date ({syncState.selectedDate})</span>
+                </label>
               </div>
 
               <!-- Presets list -->
@@ -937,9 +949,34 @@
 
   .preset-save-section {
     display: flex;
+    flex-direction: column;
     gap: 6px;
     padding: 8px 10px;
     border-bottom: 1px solid var(--border-primary);
+  }
+
+  .preset-save-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .preset-pin-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .preset-pin-label:hover {
+    color: var(--text-main);
+  }
+
+  .preset-pin-checkbox {
+    cursor: pointer;
+    accent-color: #ef4444;
   }
 
   .preset-name-input {

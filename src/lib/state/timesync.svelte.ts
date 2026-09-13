@@ -89,29 +89,32 @@ export class TimeSyncState {
    * Cross-tab live synchronization when another browser tab modifies storage.
    */
   rehydrateFromStorage() {
+    if (typeof window === 'undefined') return;
     const stored = loadPersisted();
     if (!stored) return;
 
     this.recents = stored.recents || [];
     this.presets = stored.presets || [];
 
+    const params = new URLSearchParams(window.location.search);
     let domChanged = false;
 
-    if (stored.prefs.theme && stored.prefs.theme !== this.theme) {
+    // Only rehydrate preferences if not explicitly set by the current URL
+    if (!params.has('theme') && stored.prefs.theme && stored.prefs.theme !== this.theme) {
       this.theme = stored.prefs.theme;
       domChanged = true;
     }
-    if (stored.prefs.palette && stored.prefs.palette !== this.palette) {
+    if (!params.has('palette') && stored.prefs.palette && stored.prefs.palette !== this.palette) {
       this.palette = stored.prefs.palette;
       domChanged = true;
     }
     if (domChanged) {
       this.applyDomAttributes();
     }
-    if (stored.prefs.timeFormat && stored.prefs.timeFormat !== this.timeFormat) {
+    if (!params.has('fmt') && stored.prefs.timeFormat && stored.prefs.timeFormat !== this.timeFormat) {
       this.timeFormat = stored.prefs.timeFormat;
     }
-    if (stored.prefs.sortStrategy && stored.prefs.sortStrategy !== this.sortStrategy) {
+    if (!params.has('sort') && stored.prefs.sortStrategy && stored.prefs.sortStrategy !== this.sortStrategy) {
       this.sortStrategy = stored.prefs.sortStrategy;
     }
   }
