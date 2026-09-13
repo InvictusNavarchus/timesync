@@ -43,6 +43,8 @@
     background: var(--bg-surface);
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   @media (max-width: 640px) {
