@@ -1,7 +1,7 @@
 import Fuse from 'fuse.js';
 import { getTimezone, getCountry, getAllTimezones } from 'countries-and-timezones';
 import { DateTime } from 'luxon';
-import { parseTimezoneId } from './timezone';
+import { parseTimezoneId, getTimezoneAbbr } from './timezone';
 
 export interface TimezoneSearchItem {
   id: string;
@@ -16,86 +16,6 @@ export interface TimezoneSearchItem {
   offsetStr: string;
   aliases: string[];
 }
-
-// Seasonal standard and daylight abbreviations [standard, daylight]
-const KNOWN_ABBRS: Record<string, [std: string, dst: string]> = {
-  // UK & Ireland
-  'Europe/London': ['GMT', 'BST'],
-  'Europe/Dublin': ['GMT', 'IST'],
-
-  // Western & Central Europe (CET in winter, CEST in summer)
-  'Europe/Paris': ['CET', 'CEST'],
-  'Europe/Berlin': ['CET', 'CEST'],
-  'Europe/Rome': ['CET', 'CEST'],
-  'Europe/Madrid': ['CET', 'CEST'],
-  'Europe/Amsterdam': ['CET', 'CEST'],
-  'Europe/Brussels': ['CET', 'CEST'],
-  'Europe/Zurich': ['CET', 'CEST'],
-  'Europe/Vienna': ['CET', 'CEST'],
-  'Europe/Warsaw': ['CET', 'CEST'],
-  'Europe/Prague': ['CET', 'CEST'],
-  'Europe/Budapest': ['CET', 'CEST'],
-  'Europe/Stockholm': ['CET', 'CEST'],
-  'Europe/Oslo': ['CET', 'CEST'],
-  'Europe/Copenhagen': ['CET', 'CEST'],
-  'Europe/Lisbon': ['WET', 'WEST'],
-
-  // Eastern Europe (EET in winter, EEST in summer)
-  'Europe/Athens': ['EET', 'EEST'],
-  'Europe/Bucharest': ['EET', 'EEST'],
-  'Europe/Helsinki': ['EET', 'EEST'],
-  'Europe/Kyiv': ['EET', 'EEST'],
-  'Europe/Kiev': ['EET', 'EEST'],
-
-  // Russia & Middle East
-  'Europe/Moscow': ['MSK', 'MSK'],
-  'Europe/Istanbul': ['TRT', 'TRT'],
-  'Asia/Jerusalem': ['IST', 'IDT'],
-  'Asia/Beirut': ['EET', 'EEST'],
-  'Asia/Amman': ['UTC+3', 'UTC+3'],
-  'Asia/Dubai': ['GST', 'GST'],
-  'Asia/Riyadh': ['AST', 'AST'],
-
-  // Asia (No DST)
-  'Asia/Tokyo': ['JST', 'JST'],
-  'Asia/Seoul': ['KST', 'KST'],
-  'Asia/Shanghai': ['CST', 'CST'],
-  'Asia/Hong_Kong': ['HKT', 'HKT'],
-  'Asia/Taipei': ['CST', 'CST'],
-  'Asia/Singapore': ['SGT', 'SGT'],
-  'Asia/Kuala_Lumpur': ['MYT', 'MYT'],
-  'Asia/Kolkata': ['IST', 'IST'],
-  'Asia/Calcutta': ['IST', 'IST'],
-  'Asia/Karachi': ['PKT', 'PKT'],
-  'Asia/Dhaka': ['BDT', 'BDT'],
-  'Asia/Kathmandu': ['NPT', 'NPT'],
-  'Asia/Katmandu': ['NPT', 'NPT'],
-  'Asia/Colombo': ['IST', 'IST'],
-  'Asia/Jakarta': ['WIB', 'WIB'],
-  'Asia/Makassar': ['WITA', 'WITA'],
-  'Asia/Jayapura': ['WIT', 'WIT'],
-  'Asia/Bangkok': ['ICT', 'ICT'],
-  'Asia/Ho_Chi_Minh': ['ICT', 'ICT'],
-  'Asia/Manila': ['PHT', 'PHT'],
-
-  // Australia & New Zealand (Southern hemisphere: Oct–Apr is DST)
-  'Australia/Sydney': ['AEST', 'AEDT'],
-  'Australia/Melbourne': ['AEST', 'AEDT'],
-  'Australia/Hobart': ['AEST', 'AEDT'],
-  'Australia/Brisbane': ['AEST', 'AEST'], // Queensland does not observe DST
-  'Australia/Adelaide': ['ACST', 'ACDT'],
-  'Australia/Darwin': ['ACST', 'ACST'],   // Northern Territory does not observe DST
-  'Australia/Perth': ['AWST', 'AWST'],    // Western Australia does not observe DST
-  'Pacific/Auckland': ['NZST', 'NZDT'],
-  'Pacific/Guam': ['ChST', 'ChST'],
-
-  // Africa
-  'Africa/Cairo': ['EET', 'EEST'],        // Egypt observes DST
-  'Africa/Johannesburg': ['SAST', 'SAST'],
-  'Africa/Lagos': ['WAT', 'WAT'],
-  'Africa/Nairobi': ['EAT', 'EAT'],
-  'Africa/Casablanca': ['+01', '+00']
-};
 
 // Popular timezone aliases / search aids
 const COMMON_ALIASES: Record<string, string[]> = {
@@ -420,17 +340,7 @@ export function getAllSearchableTimezones(): TimezoneSearchItem[] {
     const zonedNow = luxonNow.setZone(id);
     const offsetStr = zonedNow.isValid ? `UTC${zonedNow.toFormat('ZZ')}` : 'UTC';
 
-    // Resolve abbreviation with seasonality (DST vs Standard)
-    const pair = KNOWN_ABBRS[id];
-    let abbr = '';
-    if (pair) {
-      abbr = zonedNow.isInDST ? pair[1] : pair[0];
-    } else if (zonedNow.isValid && zonedNow.offsetNameShort) {
-      abbr = zonedNow.offsetNameShort;
-    }
-    if (!abbr || abbr.startsWith('GMT+') || abbr.startsWith('GMT-')) {
-      abbr = zonedNow.isValid ? `UTC${zonedNow.toFormat('Z')}` : 'UTC';
-    }
+    const abbr = getTimezoneAbbr(zonedNow, id);
 
     const aliases = COMMON_ALIASES[id] || [];
 
@@ -500,7 +410,7 @@ export function getTimezoneSearchItem(id: string): TimezoneSearchItem {
     country: '',
     countries: [],
     countryCodes: [],
-    abbr: luxonNow.isValid ? luxonNow.toFormat('ZZZZ') : 'UTC',
+    abbr: luxonNow.isValid ? getTimezoneAbbr(luxonNow, id) : 'UTC',
     descriptor: '',
     tzNames: [],
     offsetStr: luxonNow.isValid ? `UTC${luxonNow.toFormat('ZZ')}` : 'UTC',

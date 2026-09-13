@@ -133,6 +133,114 @@ export function buildRowDials(
 }
 
 /**
+ * Seasonal standard and daylight abbreviations [standard, daylight]
+ */
+export const KNOWN_ABBRS: Record<string, [std: string, dst: string]> = {
+  // UTC
+  'UTC': ['UTC', 'UTC'],
+  'Etc/UTC': ['UTC', 'UTC'],
+
+  // UK & Ireland
+  'Europe/London': ['GMT', 'BST'],
+  'Europe/Dublin': ['GMT', 'IST'],
+
+  // Western & Central Europe (CET in winter, CEST in summer)
+  'Europe/Paris': ['CET', 'CEST'],
+  'Europe/Berlin': ['CET', 'CEST'],
+  'Europe/Rome': ['CET', 'CEST'],
+  'Europe/Madrid': ['CET', 'CEST'],
+  'Europe/Amsterdam': ['CET', 'CEST'],
+  'Europe/Brussels': ['CET', 'CEST'],
+  'Europe/Zurich': ['CET', 'CEST'],
+  'Europe/Vienna': ['CET', 'CEST'],
+  'Europe/Warsaw': ['CET', 'CEST'],
+  'Europe/Prague': ['CET', 'CEST'],
+  'Europe/Budapest': ['CET', 'CEST'],
+  'Europe/Stockholm': ['CET', 'CEST'],
+  'Europe/Oslo': ['CET', 'CEST'],
+  'Europe/Copenhagen': ['CET', 'CEST'],
+  'Europe/Lisbon': ['WET', 'WEST'],
+
+  // Eastern Europe (EET in winter, EEST in summer)
+  'Europe/Athens': ['EET', 'EEST'],
+  'Europe/Bucharest': ['EET', 'EEST'],
+  'Europe/Helsinki': ['EET', 'EEST'],
+  'Europe/Kyiv': ['EET', 'EEST'],
+  'Europe/Kiev': ['EET', 'EEST'],
+
+  // Russia & Middle East
+  'Europe/Moscow': ['MSK', 'MSK'],
+  'Europe/Istanbul': ['TRT', 'TRT'],
+  'Asia/Jerusalem': ['IST', 'IDT'],
+  'Asia/Beirut': ['EET', 'EEST'],
+  'Asia/Amman': ['UTC+3', 'UTC+3'],
+  'Asia/Dubai': ['GST', 'GST'],
+  'Asia/Riyadh': ['AST', 'AST'],
+
+  // Asia (No DST)
+  'Asia/Tokyo': ['JST', 'JST'],
+  'Asia/Seoul': ['KST', 'KST'],
+  'Asia/Shanghai': ['CST', 'CST'],
+  'Asia/Hong_Kong': ['HKT', 'HKT'],
+  'Asia/Taipei': ['CST', 'CST'],
+  'Asia/Singapore': ['SGT', 'SGT'],
+  'Asia/Kuala_Lumpur': ['MYT', 'MYT'],
+  'Asia/Kolkata': ['IST', 'IST'],
+  'Asia/Calcutta': ['IST', 'IST'],
+  'Asia/Karachi': ['PKT', 'PKT'],
+  'Asia/Dhaka': ['BDT', 'BDT'],
+  'Asia/Kathmandu': ['NPT', 'NPT'],
+  'Asia/Katmandu': ['NPT', 'NPT'],
+  'Asia/Colombo': ['IST', 'IST'],
+  'Asia/Jakarta': ['WIB', 'WIB'],
+  'Asia/Makassar': ['WITA', 'WITA'],
+  'Asia/Jayapura': ['WIT', 'WIT'],
+  'Asia/Bangkok': ['ICT', 'ICT'],
+  'Asia/Ho_Chi_Minh': ['ICT', 'ICT'],
+  'Asia/Manila': ['PHT', 'PHT'],
+
+  // Australia & New Zealand (Southern hemisphere: Oct–Apr is DST)
+  'Australia/Sydney': ['AEST', 'AEDT'],
+  'Australia/Melbourne': ['AEST', 'AEDT'],
+  'Australia/Hobart': ['AEST', 'AEDT'],
+  'Australia/Brisbane': ['AEST', 'AEST'], // Queensland does not observe DST
+  'Australia/Adelaide': ['ACST', 'ACDT'],
+  'Australia/Darwin': ['ACST', 'ACST'],   // Northern Territory does not observe DST
+  'Australia/Perth': ['AWST', 'AWST'],    // Western Australia does not observe DST
+  'Pacific/Auckland': ['NZST', 'NZDT'],
+  'Pacific/Guam': ['ChST', 'ChST'],
+
+  // Africa & Atlantic
+  'Atlantic/Reykjavik': ['GMT', 'GMT'],
+  'Africa/Cairo': ['EET', 'EEST'],        // Egypt observes DST
+  'Africa/Johannesburg': ['SAST', 'SAST'],
+  'Africa/Lagos': ['WAT', 'WAT'],
+  'Africa/Nairobi': ['EAT', 'EAT'],
+  'Africa/Casablanca': ['+01', '+00']
+};
+
+/**
+ * Resolve display abbreviation for a timezone DateTime, preferring known seasonal
+ * abbreviations and normalizing synthetic GMT offsets (e.g. GMT+7) to UTC (UTC+7).
+ */
+export function getTimezoneAbbr(dt: DateTime, timezoneId: string): string {
+  const pair = KNOWN_ABBRS[timezoneId];
+  let abbr = '';
+  if (pair) {
+    abbr = dt.isInDST ? pair[1] : pair[0];
+  } else if (dt.isValid && dt.offsetNameShort) {
+    abbr = dt.offsetNameShort;
+  }
+
+  if (!abbr || abbr.startsWith('GMT+') || abbr.startsWith('GMT-')) {
+    if (!dt.isValid) return 'UTC';
+    return dt.offset === 0 ? 'UTC' : `UTC${dt.toFormat('Z')}`;
+  }
+
+  return abbr;
+}
+
+/**
  * Calculate full display metadata for a timezone row
  */
 export function getTimezoneRowData(
@@ -169,7 +277,7 @@ export function getTimezoneRowData(
   const currentLocalTime = nowTarget.toFormat(timeFmt);
   const currentDateFormatted = nowTarget.toFormat('ccc, LLL d');
 
-  const abbr = nowTarget.toFormat('ZZZZ');
+  const abbr = getTimezoneAbbr(nowTarget, validTargetZone);
 
   const anchorBase = DateTime.fromISO(selectedDate, { zone: validHomeZone });
   const anchorDate = (anchorBase.isValid ? anchorBase : nowHome).startOf('day');
