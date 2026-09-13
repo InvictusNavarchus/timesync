@@ -1,458 +1,636 @@
 <script lang="ts">
   import { syncState } from '$lib/state/timesync.svelte';
-  import type { Palette, SortStrategy, TimeFormat } from '$lib/domain/types';
+  import { getConsecutiveDates } from '$lib/domain/timezone';
+  import { searchTimezones, type TimezoneSearchItem } from '$lib/domain/search';
+  import type { Palette } from '$lib/domain/types';
   import { DateTime } from 'luxon';
   import {
-    ChevronLeft,
-    ChevronRight,
-    Calendar,
-    Share2,
+    Calendar as CalendarIcon,
+    Copy,
     Check,
-    Plus,
-    X,
-    ArrowUpDown
+    Search,
+    Paintbrush,
+    ArrowLeftToLine,
+    ArrowRightToLine,
+    X
   } from 'lucide-svelte';
 
-  let copied = $state(false);
+  // Search state
+  let searchQuery = $state('');
+  let isSearchFocused = $state(false);
+  let searchInputRef = $state<HTMLInputElement | null>(null);
 
-  const formattedDate = $derived(
-    DateTime.fromISO(syncState.selectedDate).toFormat('ccc, LLL d, yyyy')
+  // Palette popup state
+  let isPaletteOpen = $state(false);
+
+  // Copy URL state
+  let isCopied = $state(false);
+
+  // Date state
+  const consecutiveDates = $derived(getConsecutiveDates(syncState.selectedDate, 4));
+  const currentMonthLabel = $derived(
+    DateTime.fromISO(syncState.selectedDate).toFormat('LLL')
   );
 
-  const meetingDuration = $derived.by(() => {
-    if (!syncState.meeting) return null;
-    const diff = syncState.meeting.endHourIndex - syncState.meeting.startHourIndex;
-    return diff % 1 === 0 ? `${diff}h` : `${diff.toFixed(1)}h`;
+  // Meeting minutes
+  const totalMeetingMinutes = $derived.by(() => {
+    if (!syncState.meeting) return 0;
+    return Math.round((syncState.meeting.endHourIndex - syncState.meeting.startHourIndex) * 60);
   });
 
-  const palettes: { id: Palette; label: string; color: string }[] = [
-    { id: 'gray', label: 'Gray', color: '#64748b' },
-    { id: 'teal', label: 'Teal', color: '#14b8a6' },
-    { id: 'indigo', label: 'Indigo', color: '#6366f1' },
-    { id: 'pink', label: 'Pink', color: '#ec4899' }
+  // Search results
+  const searchResults = $derived(searchTimezones(searchQuery, 15));
+
+  const paletteOptions: { id: Palette; color: string }[] = [
+    { id: 'gray', color: '#71717a' },
+    { id: 'teal', color: '#14b8a6' },
+    { id: 'indigo', color: '#6366f1' },
+    { id: 'pink', color: '#ec4899' },
+    { id: 'blue', color: '#3b82f6' },
+    { id: 'purple', color: '#a855f7' }
   ];
 
-  async function copyShareUrl() {
+  async function handleCopyUrl() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      copied = true;
-      setTimeout(() => {
-        copied = false;
-      }, 2000);
+      isCopied = true;
+      setTimeout(() => (isCopied = false), 1200);
     } catch {
-      // Fallback
-      prompt('Copy this link:', window.location.href);
+      prompt('Copy URL:', window.location.href);
     }
   }
 
-  function handleDateChange(e: Event) {
-    const target = e.target as HTMLInputElement;
-    if (target.value) {
-      syncState.setSelectedDate(target.value);
+  function handleAddSearched(item: TimezoneSearchItem) {
+    syncState.addTimezone(item.id);
+    searchQuery = '';
+    isSearchFocused = false;
+  }
+
+  function handleDateInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (input.value) {
+      syncState.setSelectedDate(input.value);
     }
   }
 </script>
 
-<div class="control-bar">
-  <div class="control-group">
-    <!-- Format Toggle -->
-    <div class="segmented-control" role="group" aria-label="Time Format">
-      <button
-        type="button"
-        class="segment-btn"
-        class:active={syncState.timeFormat === '24h'}
-        onclick={() => syncState.setTimeFormat('24h')}
-      >
-        24h
-      </button>
-      <button
-        type="button"
-        class="segment-btn"
-        class:active={syncState.timeFormat === '12h'}
-        onclick={() => syncState.setTimeFormat('12h')}
-      >
-        12h
-      </button>
-    </div>
+<svelte:window onclick={(e) => {
+  const target = e.target as HTMLElement;
+  if (!target.closest('.search-box')) {
+    isSearchFocused = false;
+  }
+  if (!target.closest('.palette-picker-container')) {
+    isPaletteOpen = false;
+  }
+}} />
 
-    <!-- Palette Picker -->
-    <div class="palette-group" role="group" aria-label="Color Palette">
-      {#each palettes as pal}
-        <button
-          type="button"
-          class="palette-swatch"
-          class:active={syncState.palette === pal.id}
-          style:background-color={pal.color}
-          title="{pal.label} palette"
-          aria-label="{pal.label} palette"
-          onclick={() => syncState.setPalette(pal.id)}
-        ></button>
-      {/each}
-    </div>
+<div class="menu-bar">
+  <!-- Left Controller Box -->
+  <div class="controller-card">
+    <!-- Sub-left: Format Toggle + Palette + Meeting Minutes (340px) -->
+    <div class="controller-left">
+      <div class="format-and-palette">
+        <!-- 24 / 12 Toggle -->
+        <div class="hours-toggle">
+          <button
+            type="button"
+            class="toggle-btn"
+            class:active={syncState.timeFormat === '24h'}
+            onclick={() => syncState.setTimeFormat('24h')}
+          >
+            24
+          </button>
+          <button
+            type="button"
+            class="toggle-btn"
+            class:active={syncState.timeFormat === '12h'}
+            onclick={() => syncState.setTimeFormat('12h')}
+          >
+            12
+          </button>
+        </div>
 
-    <!-- Meeting Indicator (if active) -->
-    {#if meetingDuration}
-      <div class="meeting-badge">
-        <span class="meeting-label">Meeting:</span>
-        <span class="meeting-val">{meetingDuration}</span>
-        <button
-          type="button"
-          class="meeting-clear-btn"
-          onclick={() => syncState.clearMeeting()}
-          title="Clear meeting selection"
-          aria-label="Clear meeting selection"
-        >
-          <X size={13} />
-        </button>
+        <!-- Paintbrush Palette Picker -->
+        <div class="palette-picker-container">
+          <button
+            type="button"
+            class="palette-btn"
+            onclick={() => (isPaletteOpen = !isPaletteOpen)}
+            title="Change dial color palette"
+          >
+            <Paintbrush size={18} />
+          </button>
+
+          {#if isPaletteOpen}
+            <div class="palette-dropdown">
+              {#each paletteOptions as pal}
+                <button
+                  type="button"
+                  class="palette-dot"
+                  class:active={syncState.palette === pal.id}
+                  style:background-color={pal.color}
+                  onclick={() => {
+                    syncState.setPalette(pal.id);
+                    isPaletteOpen = false;
+                  }}
+                  title={pal.id}
+                ></button>
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
-    {/if}
+
+      <!-- Meeting Minutes Indicator -->
+      {#if totalMeetingMinutes > 0}
+        <div class="meeting-minutes">
+          <ArrowLeftToLine size={13} class="meeting-arrow" />
+          <span class="meeting-num">{totalMeetingMinutes}</span>
+          <ArrowRightToLine size={13} class="meeting-arrow" />
+          <button
+            type="button"
+            class="meeting-close-btn"
+            onclick={() => syncState.clearMeeting()}
+            title="Clear meeting"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      {/if}
+    </div>
+
+    <!-- Sub-right: Calendar + 4 Date Dials + Copy URL -->
+    <div class="controller-right">
+      <div class="date-dials-group">
+        <!-- Calendar icon button with stamped month -->
+        <label class="calendar-btn" title="Pick another date">
+          <span class="cal-month-stamp">{currentMonthLabel}</span>
+          <CalendarIcon size={24} strokeWidth={1.5} />
+          <input
+            type="date"
+            value={syncState.selectedDate}
+            onchange={handleDateInput}
+            class="hidden-native-date"
+          />
+        </label>
+
+        <!-- 4 Consecutive Date Dials -->
+        <div class="date-pills">
+          {#each consecutiveDates as d}
+            {@const isSelected = d.iso === syncState.selectedDate}
+            <button
+              type="button"
+              class="date-dial-btn"
+              class:active={isSelected}
+              onclick={() => syncState.setSelectedDate(d.iso)}
+            >
+              <span class="dial-day-num">{d.dayNum}</span>
+              <span class="dial-day-dow">{d.dow}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Copy URL button -->
+      <button
+        type="button"
+        class="copy-url-btn"
+        class:copied={isCopied}
+        onclick={handleCopyUrl}
+        title="Copy shareable link"
+      >
+        {#if isCopied}
+          <Check size={13} />
+          <span>Copied</span>
+        {:else}
+          <Copy size={11} strokeWidth={2} />
+          <span>URL</span>
+        {/if}
+      </button>
+    </div>
   </div>
 
-  <div class="control-group right-controls">
-    <!-- Date Navigator -->
-    <div class="date-navigator">
-      <button
-        type="button"
-        class="icon-nav-btn"
-        onclick={() => syncState.prevDay()}
-        title="Previous day"
-        aria-label="Previous day"
-      >
-        <ChevronLeft size={16} />
-      </button>
+  <!-- Right: 300px Inline Search Bar -->
+  <div class="search-box">
+    <input
+      bind:this={searchInputRef}
+      type="text"
+      bind:value={searchQuery}
+      onfocus={() => (isSearchFocused = true)}
+      placeholder="City or Timezone"
+      class="search-input"
+    />
+    <Search size={18} strokeWidth={1.5} class="search-icon" />
 
-      <label class="date-display" title="Click to choose a date">
-        <Calendar size={14} />
-        <span class="date-text">{formattedDate}</span>
-        <input
-          type="date"
-          value={syncState.selectedDate}
-          onchange={handleDateChange}
-          class="hidden-date-input"
-        />
-      </label>
-
-      <button
-        type="button"
-        class="icon-nav-btn"
-        onclick={() => syncState.nextDay()}
-        title="Next day"
-        aria-label="Next day"
-      >
-        <ChevronRight size={16} />
-      </button>
-
-      <button
-        type="button"
-        class="today-btn"
-        onclick={() => syncState.today()}
-        title="Jump to today"
-      >
-        Today
-      </button>
-    </div>
-
-    <!-- Sorting Strategy -->
-    <div class="sort-select-wrapper">
-      <ArrowUpDown size={14} class="sort-icon" />
-      <select
-        value={syncState.sortStrategy}
-        onchange={(e) => syncState.setSortStrategy((e.target as HTMLSelectElement).value as SortStrategy)}
-        class="sort-select"
-        aria-label="Sort timezones"
-      >
-        <option value="custom">Custom Order</option>
-        <option value="offset-asc">West → East (Offset Asc)</option>
-        <option value="offset-desc">East → West (Offset Desc)</option>
-        <option value="name">City Name (A–Z)</option>
-      </select>
-    </div>
-
-    <!-- Share Link -->
-    <button
-      type="button"
-      class="action-btn"
-      class:copied
-      onclick={copyShareUrl}
-      title="Copy shareable link"
-    >
-      {#if copied}
-        <Check size={15} />
-        <span>Copied!</span>
-      {:else}
-        <Share2 size={15} />
-        <span>Share</span>
-      {/if}
-    </button>
-
-    <!-- Add Timezone Button -->
-    <button
-      type="button"
-      class="action-btn primary"
-      onclick={() => (syncState.searchOpen = true)}
-    >
-      <Plus size={16} />
-      <span>Add City</span>
-    </button>
+    <!-- Floating Dropdown underneath input -->
+    {#if isSearchFocused && searchQuery.trim().length > 0}
+      <div class="search-dropdown">
+        {#if searchResults.length === 0}
+          <div class="no-results">No timezone found matching "{searchQuery}"</div>
+        {:else}
+          {#each searchResults as item}
+            {@const nowZoned = DateTime.now().setZone(item.id)}
+            {@const timeStr = syncState.timeFormat === '24h' ? nowZoned.toFormat('HH:mm') : nowZoned.toFormat('h:mm a')}
+            <button
+              type="button"
+              class="search-item-btn"
+              onclick={() => handleAddSearched(item)}
+            >
+              <div class="item-name-wrap">
+                <span class="item-city">{item.city}</span>
+                <sup class="item-abbr">{item.offsetStr}</sup>
+              </div>
+              <span class="item-clock">{timeStr}</span>
+            </button>
+          {/each}
+        {/if}
+      </div>
+    {/if}
   </div>
 </div>
 
 <style>
-  .control-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    padding: 0.6rem 1rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 1.25rem;
+  .menu-bar {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 8px;
+    height: 40px;
+    margin-bottom: 1.5rem;
   }
 
-  .control-group {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-  }
-
-  /* Segmented format control */
-  .segmented-control {
-    display: flex;
+  /* Controller card */
+  .controller-card {
+    display: grid;
+    grid-template-columns: 340px 1fr;
     background: var(--bg-surface-alt);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
-    padding: 2px;
+    padding: 3px;
+    height: 100%;
+    align-items: center;
   }
 
-  .segment-btn {
-    border: none;
-    background: transparent;
-    padding: 4px 10px;
+  /* Controller left section */
+  .controller-left {
+    display: grid;
+    grid-template-columns: 1fr 140px;
+    height: 100%;
+    align-items: center;
+    border-right: 1px solid var(--border-primary);
+    padding-right: 6px;
+  }
+
+  .format-and-palette {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+  }
+
+  /* 24 / 12 Toggle */
+  .hours-toggle {
+    display: flex;
+    width: 72px;
+    height: 28px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-app);
+    padding: 1px;
+  }
+
+  .toggle-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-muted);
     border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: all 0.15s ease;
   }
 
-  .segment-btn.active {
+  .toggle-btn:hover {
+    color: var(--text-main);
+  }
+
+  .toggle-btn.active {
     background: var(--bg-surface);
     color: var(--text-main);
-    box-shadow: var(--shadow-sm);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   }
 
-  /* Palette Swatches */
-  .palette-group {
+  /* Palette picker */
+  .palette-picker-container {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 0 4px;
   }
 
-  .palette-swatch {
+  .palette-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 28px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .palette-btn:hover {
+    color: var(--text-main);
+    background: var(--bg-surface);
+  }
+
+  .palette-dropdown {
+    position: absolute;
+    top: 34px;
+    left: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    z-index: 50;
+  }
+
+  .palette-dot {
     width: 18px;
     height: 18px;
     border-radius: 50%;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.15s ease;
-    padding: 0;
+    transition: transform 0.1s ease;
   }
 
-  .palette-swatch:hover {
+  .palette-dot:hover {
     transform: scale(1.15);
   }
 
-  .palette-swatch.active {
+  .palette-dot.active {
     border-color: var(--text-main);
-    transform: scale(1.1);
   }
 
-  /* Meeting Badge */
-  .meeting-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--scrubber-bg);
-    border: 1px solid var(--scrubber-border);
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .meeting-label {
-    color: var(--text-muted);
-  }
-
-  .meeting-val {
-    color: var(--text-main);
-  }
-
-  .meeting-clear-btn {
-    display: flex;
-    align-items: center;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: var(--text-muted);
-    padding: 1px;
-    border-radius: 3px;
-  }
-
-  .meeting-clear-btn:hover {
-    color: #ef4444;
-  }
-
-  /* Date Navigator */
-  .date-navigator {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
-    padding: 2px 4px;
-  }
-
-  .icon-nav-btn {
+  /* Meeting minutes */
+  .meeting-minutes {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-
-  .icon-nav-btn:hover {
-    background: var(--bg-surface);
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--text-main);
   }
 
-  .date-display {
+  :global(.meeting-arrow) {
+    color: var(--text-muted);
+  }
+
+  .meeting-num {
+    padding: 0 4px;
+    font-family: monospace;
+  }
+
+  .meeting-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    margin-left: 2px;
+    border-radius: 3px;
+  }
+
+  .meeting-close-btn:hover {
+    color: #ef4444;
+  }
+
+  /* Controller right section */
+  .controller-right {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 8px;
+    height: 100%;
+  }
+
+  .date-dials-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .calendar-btn {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-main);
-    cursor: pointer;
-    border-radius: 4px;
-  }
-
-  .date-display:hover {
+    justify-content: center;
+    width: 34px;
+    height: 32px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
     background: var(--bg-surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.15s ease;
   }
 
-  .hidden-date-input {
+  .calendar-btn:hover {
+    color: var(--text-main);
+  }
+
+  .cal-month-stamp {
+    position: absolute;
+    top: 13px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8px;
+    font-weight: 700;
+    color: #ef4444;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  .hidden-native-date {
     position: absolute;
     inset: 0;
     opacity: 0;
     cursor: pointer;
-    width: 100%;
   }
 
-  .today-btn {
-    border: none;
-    background: transparent;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    padding: 2px 6px;
-    border-radius: 4px;
-    cursor: pointer;
+  .date-pills {
+    display: flex;
+    align-items: center;
+    gap: 3px;
   }
 
-  .today-btn:hover {
+  .date-dial-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 32px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
     background: var(--bg-surface);
+    color: var(--text-muted);
+    line-height: 1.1;
+    transition: all 0.12s ease;
+  }
+
+  .date-dial-btn:hover {
     color: var(--text-main);
   }
 
-  /* Sort dropdown */
-  .sort-select-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
+  .date-dial-btn.active {
+    background: var(--bg-app);
+    color: var(--text-main);
+    font-weight: 600;
+    border-color: var(--text-muted);
   }
 
-  :global(.sort-icon) {
+  .dial-day-num {
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .dial-day-dow {
+    font-size: 0.6rem;
+    opacity: 0.8;
+  }
+
+  /* Copy URL button */
+  .copy-url-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: var(--text-main);
+    font-size: 0.72rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }
+
+  .copy-url-btn:hover {
+    background: var(--bg-app);
+  }
+
+  .copy-url-btn.copied {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #ffffff;
+  }
+
+  /* Search Box (Right Column) */
+  .search-box {
+    position: relative;
+    width: 300px;
+    height: 100%;
+  }
+
+  .search-input {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 0 34px 0 12px;
+    font-size: 0.82rem;
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .search-input:focus {
+    border-color: var(--border-primary);
+    background: var(--bg-surface);
+  }
+
+  :global(.search-icon) {
     position: absolute;
-    left: 8px;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--text-muted);
     pointer-events: none;
   }
 
-  .sort-select {
-    appearance: none;
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-subtle);
+  /* Floating Search Dropdown */
+  .search-dropdown {
+    position: absolute;
+    top: 44px;
+    right: 0;
+    width: 380px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
-    padding: 6px 12px 6px 28px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-main);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    z-index: 50;
+  }
+
+  .no-results {
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .search-item-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-primary);
     cursor: pointer;
+    text-align: left;
+    transition: background 0.1s ease;
   }
 
-  .sort-select:focus {
-    outline: none;
-    border-color: var(--border-strong);
+  .search-item-btn:last-child {
+    border-bottom: none;
   }
 
-  /* Action buttons */
-  .action-btn {
-    display: inline-flex;
+  .search-item-btn:hover {
+    background: var(--bg-surface-alt);
+  }
+
+  .item-name-wrap {
+    display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 6px;
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-surface-alt);
+  }
+
+  .item-city {
+    font-size: 0.85rem;
+    font-weight: 500;
     color: var(--text-main);
-    cursor: pointer;
-    transition: all 0.15s ease;
   }
 
-  .action-btn:hover {
-    background: var(--bg-surface);
-    border-color: var(--border-strong);
+  .item-abbr {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    border: 1px solid var(--border-primary);
+    border-radius: 3px;
+    padding: 1px 3px;
   }
 
-  .action-btn.copied {
-    border-color: #22c55e;
-    color: #16a34a;
-  }
-
-  .action-btn.primary {
-    background: var(--text-main);
-    color: var(--bg-surface);
-    border-color: transparent;
-  }
-
-  .action-btn.primary:hover {
-    opacity: 0.9;
-  }
-
-  @media (max-width: 900px) {
-    .control-bar {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .right-controls {
-      justify-content: space-between;
-    }
+  .item-clock {
+    font-family: monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-main);
   }
 </style>

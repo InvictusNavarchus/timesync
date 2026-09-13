@@ -1,47 +1,25 @@
 <script lang="ts">
   import { syncState } from '$lib/state/timesync.svelte';
-  import { DateTime } from 'luxon';
-  import { Clock, Sun, Moon, Github } from 'lucide-svelte';
-  import { onDestroy, onMount } from 'svelte';
-
-  let currentTime = $state(DateTime.now().setZone(syncState.homeZone));
-  let timer: ReturnType<typeof setInterval> | null = null;
-
-  onMount(() => {
-    timer = setInterval(() => {
-      currentTime = DateTime.now().setZone(syncState.homeZone);
-    }, 1000);
-  });
-
-  onDestroy(() => {
-    if (timer) clearInterval(timer);
-  });
-
-  let formattedTime = $derived(
-    syncState.timeFormat === '24h'
-      ? currentTime.toFormat('HH:mm:ss')
-      : currentTime.toFormat('h:mm:ss a')
-  );
-
-  let homeAbbr = $derived(currentTime.toFormat('ZZZZ'));
+  import { Sun, Moon, Github } from 'lucide-svelte';
 </script>
 
 <header class="app-header">
   <div class="brand">
-    <div class="logo-icon">
-      <Clock size={20} />
-    </div>
-    <div class="brand-text">
-      <h1 class="title">Timesync</h1>
-      <span class="subtitle">Global timezone converter & meeting coordinator</span>
-    </div>
+    <h1 class="title">Timesync</h1>
+    <span class="tagline">what time works for you?</span>
   </div>
 
-  <div class="header-right">
-    <div class="live-clock" title="Current time in home timezone ({syncState.homeZone})">
-      <span class="clock-label">Home Time</span>
-      <span class="clock-value">{formattedTime} <span class="clock-abbr">{homeAbbr}</span></span>
-    </div>
+  <div class="actions">
+    <a
+      href="https://github.com/InvictusNavarchus/timesync"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="icon-btn"
+      title="View on GitHub"
+      aria-label="GitHub repository"
+    >
+      <Github size={19} />
+    </a>
 
     <button
       type="button"
@@ -51,22 +29,11 @@
       aria-label="Toggle theme"
     >
       {#if syncState.theme === 'light'}
-        <Moon size={18} />
+        <Moon size={19} />
       {:else}
-        <Sun size={18} />
+        <Sun size={19} />
       {/if}
     </button>
-
-    <a
-      href="https://github.com/InvictusNavarchus/timesync"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="icon-btn"
-      title="View on GitHub"
-      aria-label="GitHub repository"
-    >
-      <Github size={18} />
-    </a>
   </div>
 </header>
 
@@ -75,78 +42,33 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--bg-surface);
     margin-bottom: 1.5rem;
+    padding: 0 4px;
   }
 
   .brand {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 0.75rem;
-  }
-
-  .logo-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-subtle);
-    color: var(--text-main);
   }
 
   .title {
-    font-size: 1.25rem;
+    font-size: 2.25rem;
     font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
+    line-height: 1;
     color: var(--text-main);
+    letter-spacing: -0.02em;
   }
 
-  .subtitle {
-    font-size: 0.75rem;
+  .tagline {
+    font-size: 0.95rem;
     color: var(--text-muted);
   }
 
-  .header-right {
+  .actions {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-  }
-
-  .live-clock {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    padding: 0.25rem 0.75rem;
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
-  }
-
-  .clock-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    font-weight: 600;
-  }
-
-  .clock-value {
-    font-family: monospace;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-main);
-  }
-
-  .clock-abbr {
-    font-size: 0.75rem;
-    font-weight: normal;
-    color: var(--text-muted);
   }
 
   .icon-btn {
@@ -155,30 +77,24 @@
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: 6px;
-    border: 1px solid var(--border-subtle);
+    border-radius: 50%;
+    border: 1px solid var(--border-primary);
     background: var(--bg-surface);
-    color: var(--text-muted);
-    cursor: pointer;
+    color: var(--text-main);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: color 0.15s ease, background 0.15s ease;
     text-decoration: none;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
 
   .icon-btn:hover {
-    background: var(--bg-surface-alt);
-    color: var(--text-main);
-    border-color: var(--border-strong);
+    color: var(--text-muted);
   }
 
   @media (max-width: 640px) {
     .app-header {
-      padding: 0.75rem 1rem;
-    }
-    .subtitle {
-      display: none;
-    }
-    .live-clock {
-      display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
     }
   }
 </style>

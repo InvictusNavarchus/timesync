@@ -2,11 +2,10 @@
   import Header from '$lib/components/Header.svelte';
   import ControlBar from '$lib/components/ControlBar.svelte';
   import Board from '$lib/components/Board.svelte';
-  import TimezoneSearchModal from '$lib/components/TimezoneSearchModal.svelte';
 </script>
 
 <svelte:head>
-  <title>Timesync - Timezone Converter & Meeting Planner</title>
+  <title>Timesync - what time works for you?</title>
   <meta
     name="description"
     content="Effortless visual timezone converter and meeting planner. Compare multiple timezones side-by-side."
@@ -14,23 +13,14 @@
 </svelte:head>
 
 <div class="page-container">
-  <Header />
+  <div class="content-wrapper">
+    <Header />
 
-  <main class="main-content">
-    <ControlBar />
-    <Board />
-  </main>
-
-  <footer class="app-footer">
-    <p>
-      Timesync • Built with SvelteKit, Luxon & Svelte 5 Runes.
-    </p>
-    <p class="footer-tip">
-      Tip: Drag across the dial grid to highlight an overlapping meeting window across all timezones.
-    </p>
-  </footer>
-
-  <TimezoneSearchModal />
+    <div class="board-card-container">
+      <ControlBar />
+      <Board />
+    </div>
+  </div>
 </div>
 
 <style>
@@ -38,29 +28,26 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    padding: 4rem 1.5rem 3rem;
   }
 
-  .main-content {
-    flex: 1;
-    max-width: 1320px;
+  .content-wrapper {
     width: 100%;
-    margin: 0 auto;
-    padding: 0 1rem;
+    max-width: 1180px;
   }
 
-  .app-footer {
-    border-top: 1px solid var(--border-subtle);
-    padding: 1.5rem 1rem;
-    text-align: center;
-    font-size: 0.75rem;
-    color: var(--text-muted);
+  .board-card-container {
+    padding: 1rem 0.6rem;
+    border: 1px solid var(--border-primary);
     background: var(--bg-surface);
-    margin-top: auto;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   }
 
-  .footer-tip {
-    margin-top: 0.25rem;
-    font-size: 0.7rem;
-    opacity: 0.8;
+  @media (max-width: 640px) {
+    .page-container {
+      padding: 1.5rem 0.5rem;
+    }
   }
 </style>
