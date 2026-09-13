@@ -120,30 +120,20 @@ export class TimeSyncState {
   }
 
   get sortedTimezones(): string[] {
-    if (this.sortStrategy === 'custom') {
-      return this.timezones;
-    }
-
-    const home = this.homeZone || this.timezones[0];
-    const others = this.timezones.filter((tz) => tz !== home);
+    const list = [...this.timezones];
     const now = DateTime.now();
 
-    let sortedOthers: string[] = [];
     switch (this.sortStrategy) {
       case 'offset-asc':
-        sortedOthers = [...others].sort((a, b) => (now.setZone(a).offset ?? 0) - (now.setZone(b).offset ?? 0));
-        break;
+        return list.sort((a, b) => (now.setZone(a).offset ?? 0) - (now.setZone(b).offset ?? 0));
       case 'offset-desc':
-        sortedOthers = [...others].sort((a, b) => (now.setZone(b).offset ?? 0) - (now.setZone(a).offset ?? 0));
-        break;
+        return list.sort((a, b) => (now.setZone(b).offset ?? 0) - (now.setZone(a).offset ?? 0));
       case 'name':
-        sortedOthers = [...others].sort((a, b) => a.localeCompare(b));
-        break;
+        return list.sort((a, b) => a.localeCompare(b));
+      case 'custom':
       default:
-        sortedOthers = others;
+        return list;
     }
-
-    return [home, ...sortedOthers];
   }
 
   addTimezone(ianaName: string) {
