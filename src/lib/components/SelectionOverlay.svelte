@@ -1,6 +1,7 @@
 <script lang="ts">
   import { syncState } from '$lib/state/timesync.svelte';
-  import { onDestroy } from 'svelte';
+  import { DateTime } from 'luxon';
+  import { onDestroy, onMount } from 'svelte';
 
   const DEFAULT_DIAL_WIDTH = 32; // 32px per hour
   const HALF_DIAL_WIDTH = 16;    // 16px per 30 minutes
@@ -8,10 +9,19 @@
 
   let trackRef = $state<HTMLDivElement | null>(null);
 
+  function getHomeCurrentHour(): number {
+    try {
+      const now = DateTime.now().setZone(syncState.homeZone);
+      return now.isValid ? now.hour : 0;
+    } catch {
+      return 0;
+    }
+  }
+
   let isLocked = $state(false);
   let isDragging = $state(false);
   let dragSide = $state<'left' | 'right' | 'box' | null>(null);
-  let mouseX = $state(0);
+  let mouseX = $state(getHomeCurrentHour() * DEFAULT_DIAL_WIDTH);
   let windowWidth = $state(DEFAULT_DIAL_WIDTH);
   let dragStartX = $state(0);
   let initialMouseX = $state(0);
@@ -20,14 +30,27 @@
   // Sync state when meeting is set via URL or initialized
   $effect(() => {
     if (syncState.meeting) {
-      const startPx = (syncState.meeting.startHourIndex) * DEFAULT_DIAL_WIDTH;
+      const startPx = syncState.meeting.startHourIndex * DEFAULT_DIAL_WIDTH;
       const widthPx = (syncState.meeting.endHourIndex - syncState.meeting.startHourIndex) * DEFAULT_DIAL_WIDTH;
       mouseX = startPx;
       windowWidth = Math.max(HALF_DIAL_WIDTH, widthPx);
       isLocked = true;
-    } else if (!isDragging && isLocked) {
+    } else if (!isDragging) {
       isLocked = false;
+      // When no meeting is active, default highlight is home's current hour
+      mouseX = getHomeCurrentHour() * DEFAULT_DIAL_WIDTH;
+      windowWidth = DEFAULT_DIAL_WIDTH;
     }
+  });
+
+  // Keep home hour highlight updated every 30 seconds if unlocked
+  let clockInterval: ReturnType<typeof setInterval> | null = null;
+  onMount(() => {
+    clockInterval = setInterval(() => {
+      if (!isLocked && !isDragging) {
+        mouseX = getHomeCurrentHour() * DEFAULT_DIAL_WIDTH;
+      }
+    }, 30000);
   });
 
   function getSnappedX(clientX: number): number {
@@ -41,6 +64,13 @@
   function handleTrackMouseMove(e: MouseEvent) {
     if (isLocked || isDragging) return;
     mouseX = getSnappedX(e.clientX);
+    windowWidth = DEFAULT_DIAL_WIDTH;
+  }
+
+  function handleTrackMouseLeave() {
+    if (isLocked || isDragging) return;
+    // Snap back to home's current hour on mouse leave
+    mouseX = getHomeCurrentHour() * DEFAULT_DIAL_WIDTH;
     windowWidth = DEFAULT_DIAL_WIDTH;
   }
 
@@ -58,6 +88,8 @@
       // Click outside while locked clears selection
       isLocked = false;
       syncState.clearMeeting();
+      mouseX = getHomeCurrentHour() * DEFAULT_DIAL_WIDTH;
+      windowWidth = DEFAULT_DIAL_WIDTH;
     }
   }
 
@@ -133,6 +165,7 @@
   }
 
   onDestroy(() => {
+    if (clockInterval) clearInterval(clockInterval);
     if (typeof window !== 'undefined') {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -144,6 +177,7 @@
 <div
   class="overlay-container"
   onmousemove={handleTrackMouseMove}
+  onmouseleave={handleTrackMouseLeave}
   onmousedown={handleTrackMouseDown}
   role="presentation"
 >
