@@ -213,6 +213,9 @@
     font-size: 0.92rem;
     font-weight: 500;
     color: var(--text-main);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .abbr-badge {
@@ -222,6 +225,8 @@
     border-radius: 4px;
     padding: 1px 4px;
     top: -0.25em;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .region-subtext {

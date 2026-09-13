@@ -210,6 +210,14 @@ export const KNOWN_ABBRS: Record<string, [std: string, dst: string]> = {
   'Pacific/Auckland': ['NZST', 'NZDT'],
   'Pacific/Guam': ['ChST', 'ChST'],
 
+  // Latin America
+  'America/Sao_Paulo': ['BRT', 'BRT'],
+  'America/Argentina/Buenos_Aires': ['ART', 'ART'],
+  'America/Buenos_Aires': ['ART', 'ART'],
+  'America/Santiago': ['CLT', 'CLST'],
+  'America/Bogota': ['COT', 'COT'],
+  'America/Lima': ['PET', 'PET'],
+
   // Africa & Atlantic
   'Atlantic/Reykjavik': ['GMT', 'GMT'],
   'Africa/Cairo': ['EET', 'EEST'],        // Egypt observes DST
@@ -238,6 +246,22 @@ export function getTimezoneAbbr(dt: DateTime, timezoneId: string): string {
   }
 
   return abbr;
+}
+
+/**
+ * Format a compound abbreviation string displaying both the civil abbreviation
+ * and UTC offset (e.g. "CEST · UTC+2", "EDT · UTC-4", "GMT · UTC"), collapsing
+ * to a single label if the abbreviation is already a UTC offset or identical.
+ */
+export function formatCompoundAbbr(civilAbbr: string, dt: DateTime): string {
+  if (!dt.isValid) return 'UTC';
+  const utcOffset = dt.offset === 0 ? 'UTC' : `UTC${dt.toFormat('Z')}`;
+
+  if (!civilAbbr || civilAbbr === utcOffset || civilAbbr.startsWith('UTC')) {
+    return utcOffset;
+  }
+
+  return `${civilAbbr} · ${utcOffset}`;
 }
 
 /**
@@ -277,7 +301,8 @@ export function getTimezoneRowData(
   const currentLocalTime = nowTarget.toFormat(timeFmt);
   const currentDateFormatted = nowTarget.toFormat('ccc, LLL d');
 
-  const abbr = getTimezoneAbbr(nowTarget, validTargetZone);
+  const baseAbbr = getTimezoneAbbr(nowTarget, validTargetZone);
+  const abbr = formatCompoundAbbr(baseAbbr, nowTarget);
 
   const anchorBase = DateTime.fromISO(selectedDate, { zone: validHomeZone });
   const anchorDate = (anchorBase.isValid ? anchorBase : nowHome).startOf('day');
