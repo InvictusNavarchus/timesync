@@ -17,49 +17,82 @@ export interface TimezoneSearchItem {
   aliases: string[];
 }
 
-// Industry standard abbreviations for global zones where native ICU defaults to GMT+X
-const KNOWN_ABBRS: Record<string, string> = {
-  'Europe/London': 'BST',
-  'Europe/Paris': 'CEST',
-  'Europe/Berlin': 'CEST',
-  'Europe/Rome': 'CEST',
-  'Europe/Madrid': 'CEST',
-  'Europe/Amsterdam': 'CEST',
-  'Europe/Brussels': 'CEST',
-  'Europe/Zurich': 'CEST',
-  'Europe/Vienna': 'CEST',
-  'Europe/Warsaw': 'CEST',
-  'Europe/Prague': 'CEST',
-  'Europe/Budapest': 'CEST',
-  'Europe/Stockholm': 'CEST',
-  'Europe/Oslo': 'CEST',
-  'Europe/Copenhagen': 'CEST',
-  'Europe/Athens': 'EEST',
-  'Europe/Bucharest': 'EEST',
-  'Europe/Helsinki': 'EEST',
-  'Europe/Kyiv': 'EEST',
-  'Europe/Moscow': 'MSK',
-  'Asia/Tokyo': 'JST',
-  'Asia/Seoul': 'KST',
-  'Asia/Shanghai': 'CST',
-  'Asia/Urumqi': 'CST',
-  'Asia/Hong_Kong': 'HKT',
-  'Asia/Taipei': 'CST',
-  'Asia/Singapore': 'SGT',
-  'Asia/Kolkata': 'IST',
-  'Asia/Jakarta': 'WIB',
-  'Asia/Makassar': 'WITA',
-  'Asia/Jayapura': 'WIT',
-  'Asia/Dubai': 'GST',
-  'Asia/Riyadh': 'AST',
-  'Asia/Bangkok': 'ICT',
-  'Asia/Ho_Chi_Minh': 'ICT',
-  'Australia/Sydney': 'AEST',
-  'Australia/Melbourne': 'AEST',
-  'Australia/Brisbane': 'AEST',
-  'Australia/Adelaide': 'ACST',
-  'Australia/Perth': 'AWST',
-  'Pacific/Auckland': 'NZST'
+// Seasonal standard and daylight abbreviations [standard, daylight]
+const KNOWN_ABBRS: Record<string, [std: string, dst: string]> = {
+  // UK & Ireland
+  'Europe/London': ['GMT', 'BST'],
+  'Europe/Dublin': ['GMT', 'IST'],
+
+  // Western & Central Europe (CET in winter, CEST in summer)
+  'Europe/Paris': ['CET', 'CEST'],
+  'Europe/Berlin': ['CET', 'CEST'],
+  'Europe/Rome': ['CET', 'CEST'],
+  'Europe/Madrid': ['CET', 'CEST'],
+  'Europe/Amsterdam': ['CET', 'CEST'],
+  'Europe/Brussels': ['CET', 'CEST'],
+  'Europe/Zurich': ['CET', 'CEST'],
+  'Europe/Vienna': ['CET', 'CEST'],
+  'Europe/Warsaw': ['CET', 'CEST'],
+  'Europe/Prague': ['CET', 'CEST'],
+  'Europe/Budapest': ['CET', 'CEST'],
+  'Europe/Stockholm': ['CET', 'CEST'],
+  'Europe/Oslo': ['CET', 'CEST'],
+  'Europe/Copenhagen': ['CET', 'CEST'],
+  'Europe/Lisbon': ['WET', 'WEST'],
+
+  // Eastern Europe (EET in winter, EEST in summer)
+  'Europe/Athens': ['EET', 'EEST'],
+  'Europe/Bucharest': ['EET', 'EEST'],
+  'Europe/Helsinki': ['EET', 'EEST'],
+  'Europe/Kyiv': ['EET', 'EEST'],
+  'Europe/Kiev': ['EET', 'EEST'],
+
+  // Russia & Middle East
+  'Europe/Moscow': ['MSK', 'MSK'],
+  'Europe/Istanbul': ['TRT', 'TRT'],
+  'Asia/Jerusalem': ['IST', 'IDT'],
+  'Asia/Beirut': ['EET', 'EEST'],
+  'Asia/Amman': ['UTC+3', 'UTC+3'],
+  'Asia/Dubai': ['GST', 'GST'],
+  'Asia/Riyadh': ['AST', 'AST'],
+
+  // Asia (No DST)
+  'Asia/Tokyo': ['JST', 'JST'],
+  'Asia/Seoul': ['KST', 'KST'],
+  'Asia/Shanghai': ['CST', 'CST'],
+  'Asia/Hong_Kong': ['HKT', 'HKT'],
+  'Asia/Taipei': ['CST', 'CST'],
+  'Asia/Singapore': ['SGT', 'SGT'],
+  'Asia/Kuala_Lumpur': ['MYT', 'MYT'],
+  'Asia/Kolkata': ['IST', 'IST'],
+  'Asia/Karachi': ['PKT', 'PKT'],
+  'Asia/Dhaka': ['BDT', 'BDT'],
+  'Asia/Kathmandu': ['NPT', 'NPT'],
+  'Asia/Colombo': ['IST', 'IST'],
+  'Asia/Jakarta': ['WIB', 'WIB'],
+  'Asia/Makassar': ['WITA', 'WITA'],
+  'Asia/Jayapura': ['WIT', 'WIT'],
+  'Asia/Bangkok': ['ICT', 'ICT'],
+  'Asia/Ho_Chi_Minh': ['ICT', 'ICT'],
+  'Asia/Manila': ['PHT', 'PHT'],
+
+  // Australia & New Zealand (Southern hemisphere: Oct–Apr is DST)
+  'Australia/Sydney': ['AEST', 'AEDT'],
+  'Australia/Melbourne': ['AEST', 'AEDT'],
+  'Australia/Hobart': ['AEST', 'AEDT'],
+  'Australia/Brisbane': ['AEST', 'AEST'], // Queensland does not observe DST
+  'Australia/Adelaide': ['ACST', 'ACDT'],
+  'Australia/Darwin': ['ACST', 'ACST'],   // Northern Territory does not observe DST
+  'Australia/Perth': ['AWST', 'AWST'],    // Western Australia does not observe DST
+  'Pacific/Auckland': ['NZST', 'NZDT'],
+  'Pacific/Guam': ['ChST', 'ChST'],
+
+  // Africa
+  'Africa/Cairo': ['EET', 'EEST'],        // Egypt observes DST
+  'Africa/Johannesburg': ['SAST', 'SAST'],
+  'Africa/Lagos': ['WAT', 'WAT'],
+  'Africa/Nairobi': ['EAT', 'EAT'],
+  'Africa/Casablanca': ['+01', '+00']
 };
 
 // Popular timezone aliases / search aids
@@ -172,6 +205,7 @@ const COMMON_ALIASES: Record<string, string[]> = {
   'Europe/Athens': ['athens', 'greece', 'eet', 'eest'],
   'Europe/Istanbul': ['istanbul', 'ankara', 'turkey', 'turkiye'],
   'Europe/Kyiv': ['kyiv', 'kiev', 'ukraine', 'eet', 'eest'],
+  'Europe/Kiev': ['kyiv', 'kiev', 'ukraine', 'eet', 'eest'],
   'Europe/Moscow': ['moscow', 'saint petersburg', 'russia', 'msk'],
   'Europe/Lisbon': ['lisbon', 'porto', 'portugal', 'wet', 'west'],
 
@@ -186,7 +220,7 @@ const COMMON_ALIASES: Record<string, string[]> = {
     'hangzhou',
     'cst'
   ],
-  'Asia/Urumqi': ['urumqi', 'xinjiang', 'china', 'cst'],
+  'Asia/Urumqi': ['urumqi', 'xinjiang', 'xjt'],
   'Asia/Hong_Kong': ['hong kong', 'hk', 'hkt'],
   'Asia/Taipei': ['taipei', 'taiwan', 'cst'],
   'Asia/Tokyo': ['tokyo', 'japan', 'kyoto', 'osaka', 'yokohama', 'nagoya', 'sapporo', 'jst'],
@@ -194,8 +228,8 @@ const COMMON_ALIASES: Record<string, string[]> = {
   'Asia/Pyongyang': ['pyongyang', 'north korea'],
   'Asia/Singapore': ['singapore', 'sg', 'sgt'],
   'Asia/Kuala_Lumpur': ['kuala lumpur', 'kl', 'malaysia', 'penang', 'myt'],
-  'Asia/Jakarta': ['jakarta', 'indonesia', 'java', 'bali', 'wib', 'surabaya', 'bandung'],
-  'Asia/Makassar': ['makassar', 'bali', 'wita', 'indonesia'],
+  'Asia/Jakarta': ['jakarta', 'indonesia', 'java', 'wib', 'surabaya', 'bandung'],
+  'Asia/Makassar': ['makassar', 'bali', 'denpasar', 'wita', 'indonesia'],
   'Asia/Jayapura': ['jayapura', 'wit', 'papua', 'indonesia'],
   'Asia/Bangkok': [
     'bangkok',
@@ -243,15 +277,19 @@ const COMMON_ALIASES: Record<string, string[]> = {
   // Australia & Oceania
   'Australia/Sydney': ['sydney', 'canberra', 'new south wales', 'nsw', 'australia', 'aest', 'aedt'],
   'Australia/Melbourne': ['melbourne', 'victoria', 'australia', 'aest', 'aedt'],
+  'Australia/Hobart': ['hobart', 'tasmania', 'australia', 'aest', 'aedt'],
   'Australia/Brisbane': ['brisbane', 'queensland', 'gold coast', 'australia', 'aest'],
   'Australia/Adelaide': ['adelaide', 'south australia', 'acst', 'acdt'],
+  'Australia/Darwin': ['darwin', 'northern territory', 'nt', 'australia', 'acst'],
   'Australia/Perth': ['perth', 'western australia', 'australia', 'awst'],
   'Pacific/Auckland': ['auckland', 'wellington', 'christchurch', 'new zealand', 'nz', 'nzst', 'nzdt'],
+  'Pacific/Guam': ['guam', 'chst'],
   'Pacific/Fiji': ['fiji', 'suva'],
 
   // Latin America
   'America/Sao_Paulo': ['sao paulo', 'rio de janeiro', 'brasilia', 'brazil', 'brasil', 'brt'],
-  'America/Buenos_Aires': ['buenos aires', 'argentina', 'art'],
+  'America/Argentina/Buenos_Aires': ['buenos aires', 'argentina', 'art'],
+  'America/Buenos_Aires': ['buenos aires', 'argentina', 'art'], // fallback alias
   'America/Santiago': ['santiago', 'chile', 'clt', 'clst'],
   'America/Bogota': ['bogota', 'medellin', 'colombia', 'cot'],
   'America/Lima': ['lima', 'peru', 'pet'],
@@ -299,6 +337,11 @@ export function getAllSearchableTimezones(): TimezoneSearchItem[] {
         'Pacific/Auckland'
       ];
     }
+  }
+
+  // Ensure UTC is present even if browser runtime omits it
+  if (!timezones.includes('UTC')) {
+    timezones.unshift('UTC');
   }
 
   const now = new Date();
@@ -361,8 +404,14 @@ export function getAllSearchableTimezones(): TimezoneSearchItem[] {
     const zonedNow = luxonNow.setZone(id);
     const offsetStr = zonedNow.isValid ? `UTC${zonedNow.toFormat('ZZ')}` : 'UTC';
 
-    // Resolve abbreviation (e.g. EDT, PDT, BST, CEST, JST, CST, etc.)
-    let abbr = KNOWN_ABBRS[id] || (zonedNow.isValid ? zonedNow.offsetNameShort : 'UTC');
+    // Resolve abbreviation with seasonality (DST vs Standard)
+    const pair = KNOWN_ABBRS[id];
+    let abbr = '';
+    if (pair) {
+      abbr = zonedNow.isInDST ? pair[1] : pair[0];
+    } else if (zonedNow.isValid && zonedNow.offsetNameShort) {
+      abbr = zonedNow.offsetNameShort;
+    }
     if (!abbr || abbr.startsWith('GMT+') || abbr.startsWith('GMT-')) {
       abbr = zonedNow.isValid ? `UTC${zonedNow.toFormat('Z')}` : 'UTC';
     }
