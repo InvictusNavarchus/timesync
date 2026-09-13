@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import type { DialCell, TimezoneRowData, TimeFormat, CircleType } from './types';
+import type { DialCell, TimezoneRowData, TimeFormat, CircleType, MeetingSelection } from './types';
 
 /**
  * Categorize the hour into daylight phases for color coding
@@ -27,13 +27,13 @@ export function parseTimezoneId(id: string): { region: string; city: string } {
 }
 
 /**
- * Format hourly offset difference nicely (e.g., "+5.5h", "-4h", "0h")
+ * Format hourly offset difference cleanly (e.g., "+1", "-13", "0")
  */
 export function formatDiffHours(diff: number): string {
-  if (diff === 0) return '0h';
+  if (diff === 0) return '0';
   const sign = diff > 0 ? '+' : '';
   const rounded = Number.isInteger(diff) ? diff.toString() : diff.toFixed(1);
-  return `${sign}${rounded}h`;
+  return `${sign}${rounded}`;
 }
 
 /**
@@ -45,6 +45,31 @@ export function getSystemTimezone(): string {
   } catch {
     return 'UTC';
   }
+}
+
+/**
+ * Return 4 consecutive dates starting from the given ISO date
+ */
+export function getConsecutiveDates(baseDateIso: string, count = 4): {
+  iso: string;
+  dayNum: string;
+  dow: string;
+  month: string;
+}[] {
+  const base = DateTime.fromISO(baseDateIso);
+  const validBase = base.isValid ? base : DateTime.now();
+
+  const dates = [];
+  for (let i = 0; i < count; i++) {
+    const dt = validBase.plus({ days: i });
+    dates.push({
+      iso: dt.toISODate()!,
+      dayNum: dt.toFormat('d'),
+      dow: dt.toFormat('ccc'),
+      month: dt.toFormat('LLL')
+    });
+  }
+  return dates;
 }
 
 /**
@@ -63,16 +88,19 @@ export function buildRowDials(
     const homeStep = homeAnchorDate.plus({ hours: i });
     const targetTime = homeStep.setZone(targetZone);
 
-    // Day transition occurs on index 0 (initial strip day) or when calendar day changes
+    // Day transition occurs on index 0 or when calendar day changes
     const isNewDay = i === 0 || (prevDay !== null && targetTime.day !== prevDay);
     const dayLabel = isNewDay ? targetTime.toFormat('ccc, LLL d') : undefined;
+    const monthLabel = isNewDay ? targetTime.toFormat('LLL') : undefined;
+    const dayNum = isNewDay ? targetTime.toFormat('d') : undefined;
+    const dowLabel = isNewDay ? targetTime.toFormat('ccc') : undefined;
 
-    // Time label formatting (preserve minutes for fractional timezones)
+    // Time label formatting
     let timeLabel = '';
     if (format === '24h') {
       timeLabel = targetTime.minute > 0
         ? targetTime.toFormat('HH:mm')
-        : targetTime.toFormat('HH');
+        : targetTime.toFormat('H');
     } else {
       timeLabel = targetTime.minute > 0
         ? targetTime.toFormat('h:mm')
@@ -89,6 +117,9 @@ export function buildRowDials(
       period: targetTime.toFormat('a') as 'AM' | 'PM',
       isNewDay,
       dayLabel,
+      monthLabel,
+      dayNum,
+      dowLabel,
       circleType
     });
 
@@ -105,7 +136,8 @@ export function getTimezoneRowData(
   timezoneId: string,
   homeZone: string,
   selectedDate: string,
-  format: TimeFormat
+  format: TimeFormat,
+  meeting?: MeetingSelection | null
 ): TimezoneRowData {
   const { region, city } = parseTimezoneId(timezoneId);
   const nowTarget = DateTime.now().setZone(timezoneId);
@@ -115,14 +147,25 @@ export function getTimezoneRowData(
   const diffFromHomeHours = (nowTarget.offset - nowHome.offset) / 60;
   const diffFromHomeFormatted = formatDiffHours(diffFromHomeHours);
 
-  const currentLocalTime = format === '24h'
-    ? nowTarget.toFormat('HH:mm')
-    : nowTarget.toFormat('h:mm a');
+  const timeFmt = format === '24h' ? 'HH:mm' : 'hh:mm a';
+  const currentLocalTime = nowTarget.toFormat(timeFmt);
+  const currentDateFormatted = nowTarget.toFormat('ccc, LLL d');
 
   const abbr = nowTarget.toFormat('ZZZZ');
 
   const anchorDate = DateTime.fromISO(selectedDate, { zone: homeZone }).startOf('day');
   const dials = buildRowDials(timezoneId, anchorDate, format);
+
+  let meetingTimeRange: TimezoneRowData['meetingTimeRange'];
+  if (meeting) {
+    const startDt = anchorDate.plus({ hours: meeting.startHourIndex }).setZone(timezoneId);
+    const endDt = anchorDate.plus({ hours: meeting.endHourIndex }).setZone(timezoneId);
+    meetingTimeRange = {
+      start: startDt.toFormat(timeFmt),
+      end: endDt.toFormat(timeFmt),
+      date: startDt.toFormat('ccc, LLL d')
+    };
+  }
 
   return {
     id: timezoneId,
@@ -133,6 +176,8 @@ export function getTimezoneRowData(
     diffFromHomeHours,
     diffFromHomeFormatted,
     currentLocalTime,
+    currentDateFormatted,
+    meetingTimeRange,
     dials
   };
 }

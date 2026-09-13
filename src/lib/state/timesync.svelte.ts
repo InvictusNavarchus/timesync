@@ -62,7 +62,7 @@ export class TimeSyncState {
     }
 
     const paletteParam = params.get('palette') as Palette;
-    if (['gray', 'teal', 'indigo', 'pink'].includes(paletteParam)) {
+    if (['gray', 'teal', 'indigo', 'pink', 'blue', 'purple'].includes(paletteParam)) {
       this.palette = paletteParam;
     }
 

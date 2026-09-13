@@ -1,5 +1,5 @@
 export type TimeFormat = '12h' | '24h';
-export type Palette = 'gray' | 'teal' | 'indigo' | 'pink';
+export type Palette = 'gray' | 'teal' | 'indigo' | 'pink' | 'blue' | 'purple';
 export type Theme = 'light' | 'dark';
 export type SortStrategy = 'custom' | 'offset-asc' | 'offset-desc' | 'name';
 
@@ -11,7 +11,10 @@ export interface DialCell {
   timeLabel: string;    // "14" or "2" or "14:45"
   period?: 'AM' | 'PM';
   isNewDay: boolean;
-  dayLabel?: string;    // "Mon, Oct 12"
+  dayLabel?: string;    // "Sun, Sep 13"
+  monthLabel?: string;  // "Sep"
+  dayNum?: string;      // "13"
+  dowLabel?: string;    // "Sun"
   circleType: CircleType;
 }
 
@@ -22,8 +25,14 @@ export interface TimezoneRowData {
   abbr: string;         // "EDT"
   offsetHours: number;  // -4
   diffFromHomeHours: number; // e.g. +6 or +5.75
-  diffFromHomeFormatted: string; // "+6h", "-4.5h", "0h"
+  diffFromHomeFormatted: string; // "+6", "-13", "0"
   currentLocalTime: string;  // "14:30" or "2:30 PM"
+  currentDateFormatted: string; // "Sun, Sep 13"
+  meetingTimeRange?: {
+    start: string;
+    end: string;
+    date: string;
+  };
   dials: DialCell[];
 }
 
