@@ -11,6 +11,7 @@
         "luxon": "^3.7.2",
       },
       "devDependencies": {
+        "@navarchus/cf-headers": "^0.4.1",
         "@sveltejs/adapter-static": "^3.0.10",
         "@sveltejs/kit": "^2.70.3",
         "@sveltejs/vite-plugin-svelte": "^7.3.0",
@@ -32,6 +33,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.6.0", "", {}, "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@navarchus/cf-headers": ["@navarchus/cf-headers@0.4.1", "", { "peerDependencies": { "vite": ">=5.0.0" }, "optionalPeers": ["vite"] }, "sha512-SmMUWjtsAmX+Qhrg7TDM2mFexEVRliyQ4Jhzell1+mij7QyVeMhmHWQ9UYcDOfmBVtWOUSfhiFL6Kdxt+Sz4eA=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.149.0", "", {}, "sha512-Efcc+iF0j3Bf67YjEqIqWXbX5XddXoK/Mw4K1/JuXwRCZ8N16VR7iT23nlCc9XrveFVh/E5Rqs2StT0V8v9LdA=="],
 
