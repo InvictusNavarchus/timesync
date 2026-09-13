@@ -2,7 +2,7 @@
   import { syncState } from '$lib/state/timesync.svelte';
   import { getConsecutiveDates } from '$lib/domain/timezone';
   import { searchTimezones, type TimezoneSearchItem } from '$lib/domain/search';
-  import type { Palette } from '$lib/domain/types';
+  import type { Palette, SortStrategy } from '$lib/domain/types';
   import { DateTime } from 'luxon';
   import {
     Calendar as CalendarIcon,
@@ -10,6 +10,7 @@
     Check,
     Search,
     Paintbrush,
+    ArrowUpDown,
     ArrowLeftToLine,
     ArrowRightToLine,
     X
@@ -22,6 +23,16 @@
 
   // Palette popup state
   let isPaletteOpen = $state(false);
+
+  // Sort popup state
+  let isSortOpen = $state(false);
+
+  const sortOptions: { id: SortStrategy; label: string }[] = [
+    { id: 'custom', label: 'Custom Order' },
+    { id: 'offset-asc', label: 'West → East (Ascending)' },
+    { id: 'offset-desc', label: 'East → West (Descending)' },
+    { id: 'name', label: 'City Name (A–Z)' }
+  ];
 
   // Copy URL state
   let isCopied = $state(false);
@@ -82,6 +93,9 @@
   if (!target.closest('.palette-picker-container')) {
     isPaletteOpen = false;
   }
+  if (!target.closest('.sort-picker-container')) {
+    isSortOpen = false;
+  }
 }} />
 
 <div class="menu-bar">
@@ -135,6 +149,40 @@
                   }}
                   title={pal.id}
                 ></button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <!-- Sort Strategy Picker -->
+        <div class="sort-picker-container">
+          <button
+            type="button"
+            class="sort-btn"
+            class:active={syncState.sortStrategy !== 'custom'}
+            onclick={() => (isSortOpen = !isSortOpen)}
+            title="Sort timezones"
+          >
+            <ArrowUpDown size={16} />
+          </button>
+
+          {#if isSortOpen}
+            <div class="sort-dropdown">
+              {#each sortOptions as opt}
+                <button
+                  type="button"
+                  class="sort-option-btn"
+                  class:active={syncState.sortStrategy === opt.id}
+                  onclick={() => {
+                    syncState.setSortStrategy(opt.id);
+                    isSortOpen = false;
+                  }}
+                >
+                  <span class="sort-option-label">{opt.label}</span>
+                  {#if syncState.sortStrategy === opt.id}
+                    <Check size={14} class="sort-check-icon" />
+                  {/if}
+                </button>
               {/each}
             </div>
           {/if}
@@ -387,6 +435,81 @@
 
   .palette-dot.active {
     border-color: var(--text-main);
+  }
+
+  /* Sort picker */
+  .sort-picker-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .sort-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .sort-btn:hover {
+    color: var(--text-main);
+    background: var(--bg-surface);
+  }
+
+  .sort-btn.active {
+    color: var(--text-main);
+    background: var(--bg-surface);
+  }
+
+  .sort-dropdown {
+    position: absolute;
+    top: 34px;
+    left: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 204px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    z-index: 50;
+  }
+
+  .sort-option-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: left;
+    transition: all 0.1s ease;
+    cursor: pointer;
+  }
+
+  .sort-option-btn:hover {
+    color: var(--text-main);
+    background: var(--bg-surface-alt);
+  }
+
+  .sort-option-btn.active {
+    color: var(--text-main);
+    font-weight: 600;
+    background: var(--bg-surface-alt);
+  }
+
+  :global(.sort-check-icon) {
+    color: var(--text-main);
+    flex-shrink: 0;
   }
 
   /* Meeting minutes */
