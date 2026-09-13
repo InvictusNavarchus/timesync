@@ -12,6 +12,7 @@
 		"typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
+		"countries-and-timezones": "^3.10.0",
 		"fuse.js": "^7.1.0",
 		"lucide-svelte": "^0.477.0",
 		"luxon": "^3.5.0"

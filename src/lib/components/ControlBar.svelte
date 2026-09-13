@@ -238,6 +238,9 @@
             >
               <div class="item-name-wrap">
                 <span class="item-city">{item.city}</span>
+                {#if item.country && item.country !== item.city}
+                  <span class="item-country">, {item.country}</span>
+                {/if}
                 <sup class="item-abbr">{item.offsetStr}</sup>
               </div>
               <span class="item-clock">{timeStr}</span>
@@ -617,6 +620,11 @@
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--text-main);
+  }
+
+  .item-country {
+    font-size: 0.78rem;
+    color: var(--text-muted);
   }
 
   .item-abbr {
