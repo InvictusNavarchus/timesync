@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import type { TimeFormat, Palette, Theme, SortStrategy, MeetingSelection } from '../domain/types';
 
 export const STORAGE_KEY = 'timesync:v1';
@@ -60,6 +61,22 @@ export function getDefaultPersistedState(): PersistedState {
   };
 }
 
+function isValidTimezoneId(tz: unknown): tz is string {
+  if (typeof tz !== 'string') return false;
+  const trimmed = tz.trim();
+  return trimmed.length > 0 && DateTime.now().setZone(trimmed).isValid;
+}
+
+function isValidHalfHour(index: unknown): index is number {
+  return (
+    typeof index === 'number' &&
+    Number.isFinite(index) &&
+    Number.isInteger(index * 2) &&
+    index >= 0 &&
+    index <= 24
+  );
+}
+
 /**
  * Migration and schema sanitization harness.
  * Safely parses and validates arbitrary JSON against PersistedState version 1.
@@ -83,29 +100,26 @@ export function migrate(raw: unknown): PersistedState | null {
       if (['custom', 'offset-asc', 'offset-desc', 'name'].includes(obj.prefs.sortStrategy)) {
         prefs.sortStrategy = obj.prefs.sortStrategy;
       }
-      if (typeof obj.prefs.homeZone === 'string' && obj.prefs.homeZone.trim()) {
+      if (isValidTimezoneId(obj.prefs.homeZone)) {
         prefs.homeZone = obj.prefs.homeZone.trim();
       }
     }
 
     let lastBoard: LastBoardState | null = null;
     if (obj.lastBoard && typeof obj.lastBoard === 'object' && Array.isArray(obj.lastBoard.timezones)) {
-      const timezones = obj.lastBoard.timezones.filter(
-        (tz: unknown): tz is string => typeof tz === 'string' && tz.trim().length > 0
-      );
-      const homeZone =
-        typeof obj.lastBoard.homeZone === 'string' && obj.lastBoard.homeZone.trim()
-          ? obj.lastBoard.homeZone.trim()
-          : timezones[0] || 'UTC';
+      const timezones = obj.lastBoard.timezones
+        .filter(isValidTimezoneId)
+        .map((tz: string) => tz.trim());
+      const homeZone = isValidTimezoneId(obj.lastBoard.homeZone)
+        ? obj.lastBoard.homeZone.trim()
+        : timezones[0] || 'UTC';
 
       let meeting: MeetingSelection | null = null;
       if (obj.lastBoard.meeting && typeof obj.lastBoard.meeting === 'object') {
         const { startHourIndex, endHourIndex } = obj.lastBoard.meeting;
         if (
-          typeof startHourIndex === 'number' &&
-          typeof endHourIndex === 'number' &&
-          startHourIndex >= 0 &&
-          endHourIndex <= 24 &&
+          isValidHalfHour(startHourIndex) &&
+          isValidHalfHour(endHourIndex) &&
           endHourIndex > startHourIndex
         ) {
           meeting = { startHourIndex, endHourIndex };
@@ -119,8 +133,9 @@ export function migrate(raw: unknown): PersistedState | null {
 
     const recents: string[] = Array.isArray(obj.recents)
       ? obj.recents
-          .filter((tz: unknown): tz is string => typeof tz === 'string' && tz.trim().length > 0)
-          .slice(0, 10)
+          .filter(isValidTimezoneId)
+          .map((tz: string) => tz.trim())
+          .slice(0, 8)
       : [];
 
     const presets: SavedPreset[] = Array.isArray(obj.presets)
@@ -134,16 +149,14 @@ export function migrate(raw: unknown): PersistedState | null {
           )
           .map((p) => {
             const timezones = Array.isArray(p.timezones)
-              ? p.timezones.filter((tz: unknown): tz is string => typeof tz === 'string' && tz.trim().length > 0)
+              ? p.timezones.filter(isValidTimezoneId).map((tz: string) => tz.trim())
               : [];
             let meeting: MeetingSelection | null = null;
             if (
               p.meeting &&
               typeof p.meeting === 'object' &&
-              typeof p.meeting.startHourIndex === 'number' &&
-              typeof p.meeting.endHourIndex === 'number' &&
-              p.meeting.startHourIndex >= 0 &&
-              p.meeting.endHourIndex <= 24 &&
+              isValidHalfHour(p.meeting.startHourIndex) &&
+              isValidHalfHour(p.meeting.endHourIndex) &&
               p.meeting.endHourIndex > p.meeting.startHourIndex
             ) {
               meeting = { startHourIndex: p.meeting.startHourIndex, endHourIndex: p.meeting.endHourIndex };
@@ -153,9 +166,12 @@ export function migrate(raw: unknown): PersistedState | null {
               id: p.id,
               name: p.name.trim() || 'Untitled Preset',
               timezones,
-              homeZone: typeof p.homeZone === 'string' && p.homeZone.trim() ? p.homeZone.trim() : timezones[0] || 'UTC',
+              homeZone: isValidTimezoneId(p.homeZone) ? p.homeZone.trim() : timezones[0] || 'UTC',
               meeting,
-              pinnedDate: typeof p.pinnedDate === 'string' ? p.pinnedDate : null,
+              pinnedDate:
+                typeof p.pinnedDate === 'string' && DateTime.fromISO(p.pinnedDate).isValid
+                  ? p.pinnedDate
+                  : null,
               createdAt: typeof p.createdAt === 'number' ? p.createdAt : Date.now()
             };
           })
@@ -221,9 +237,16 @@ export function importStateJson(jsonString: string): {
 } {
   try {
     const parsed = JSON.parse(jsonString);
+    if (!parsed || typeof parsed !== 'object' || parsed.version !== 1) {
+      return { success: false, error: 'Unrecognized or invalid backup file format.' };
+    }
+    // Prevent accidental data wipes from incomplete or empty JSON
+    if (!parsed.prefs && !parsed.lastBoard && !Array.isArray(parsed.presets) && !Array.isArray(parsed.recents)) {
+      return { success: false, error: 'Backup file contains no recognizable state fields.' };
+    }
     const migrated = migrate(parsed);
     if (!migrated) {
-      return { success: false, error: 'Unrecognized or invalid backup file format.' };
+      return { success: false, error: 'Failed to process backup file structure.' };
     }
     return { success: true, state: migrated };
   } catch (err) {

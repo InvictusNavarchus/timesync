@@ -58,7 +58,11 @@
 
   // Search results
   const searchResults = $derived(searchTimezones(searchQuery, 15));
-  const recentItems = $derived(syncState.recents.map((id) => getTimezoneSearchItem(id)));
+  const recentItems = $derived(
+    syncState.recents
+      .filter((id) => DateTime.now().setZone(id).isValid)
+      .map((id) => getTimezoneSearchItem(id))
+  );
 
   const paletteOptions: { id: Palette; color: string }[] = [
     { id: 'gray', color: '#71717a' },
@@ -116,7 +120,9 @@
     const dateStr = DateTime.now().toISODate() || 'backup';
     a.download = `timesync-backup-${dateStr}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
   }
 
   async function handleImportJson(e: Event) {
