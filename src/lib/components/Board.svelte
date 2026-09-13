@@ -1,6 +1,7 @@
 <script lang="ts">
   import { syncState } from '$lib/state/timesync.svelte';
   import TimezoneRow from './TimezoneRow.svelte';
+  import SelectionOverlay from './SelectionOverlay.svelte';
   import { Plus, Trash } from 'lucide-svelte';
   import { DateTime } from 'luxon';
   import { onDestroy, onMount } from 'svelte';
@@ -64,6 +65,9 @@
           totalRows={syncState.sortedTimezones.length}
         />
       {/each}
+
+      <!-- Meeting Selection Overlay -->
+      <SelectionOverlay />
 
       <!-- Current Live Time Needle (Home timezone) -->
       {#if nowPercent !== null}
