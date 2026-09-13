@@ -36,7 +36,7 @@ Timesync is a modern, responsive visual timezone converter and meeting planner b
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (v1.0+)
+- [Bun](https://bun.sh) (v1.3+)
 
 ### Installation
 
