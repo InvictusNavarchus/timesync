@@ -10,10 +10,57 @@ export interface TimezoneSearchItem {
   country: string;
   countries: string[];
   countryCodes: string[];
+  abbr: string;
+  descriptor: string;
   tzNames: string[];
   offsetStr: string;
   aliases: string[];
 }
+
+// Industry standard abbreviations for global zones where native ICU defaults to GMT+X
+const KNOWN_ABBRS: Record<string, string> = {
+  'Europe/London': 'BST',
+  'Europe/Paris': 'CEST',
+  'Europe/Berlin': 'CEST',
+  'Europe/Rome': 'CEST',
+  'Europe/Madrid': 'CEST',
+  'Europe/Amsterdam': 'CEST',
+  'Europe/Brussels': 'CEST',
+  'Europe/Zurich': 'CEST',
+  'Europe/Vienna': 'CEST',
+  'Europe/Warsaw': 'CEST',
+  'Europe/Prague': 'CEST',
+  'Europe/Budapest': 'CEST',
+  'Europe/Stockholm': 'CEST',
+  'Europe/Oslo': 'CEST',
+  'Europe/Copenhagen': 'CEST',
+  'Europe/Athens': 'EEST',
+  'Europe/Bucharest': 'EEST',
+  'Europe/Helsinki': 'EEST',
+  'Europe/Kyiv': 'EEST',
+  'Europe/Moscow': 'MSK',
+  'Asia/Tokyo': 'JST',
+  'Asia/Seoul': 'KST',
+  'Asia/Shanghai': 'CST',
+  'Asia/Urumqi': 'CST',
+  'Asia/Hong_Kong': 'HKT',
+  'Asia/Taipei': 'CST',
+  'Asia/Singapore': 'SGT',
+  'Asia/Kolkata': 'IST',
+  'Asia/Jakarta': 'WIB',
+  'Asia/Makassar': 'WITA',
+  'Asia/Jayapura': 'WIT',
+  'Asia/Dubai': 'GST',
+  'Asia/Riyadh': 'AST',
+  'Asia/Bangkok': 'ICT',
+  'Asia/Ho_Chi_Minh': 'ICT',
+  'Australia/Sydney': 'AEST',
+  'Australia/Melbourne': 'AEST',
+  'Australia/Brisbane': 'AEST',
+  'Australia/Adelaide': 'ACST',
+  'Australia/Perth': 'AWST',
+  'Pacific/Auckland': 'NZST'
+};
 
 // Popular timezone aliases / search aids
 const COMMON_ALIASES: Record<string, string[]> = {
@@ -31,14 +78,16 @@ const COMMON_ALIASES: Record<string, string[]> = {
     'florida',
     'est',
     'edt',
+    'eastern',
     'usa',
     'us'
   ],
-  'America/Detroit': ['michigan', 'detroit'],
+  'America/Detroit': ['michigan', 'detroit', 'eastern'],
   'America/Chicago': [
     'chicago',
     'cst',
     'cdt',
+    'central',
     'illinois',
     'dallas',
     'houston',
@@ -48,8 +97,8 @@ const COMMON_ALIASES: Record<string, string[]> = {
     'usa',
     'us'
   ],
-  'America/Denver': ['denver', 'colorado', 'salt lake city', 'utah', 'mst', 'mdt', 'usa', 'us'],
-  'America/Phoenix': ['phoenix', 'arizona', 'mst', 'usa', 'us'],
+  'America/Denver': ['denver', 'colorado', 'salt lake city', 'utah', 'mst', 'mdt', 'mountain', 'usa', 'us'],
+  'America/Phoenix': ['phoenix', 'arizona', 'mst', 'mountain', 'usa', 'us'],
   'America/Los_Angeles': [
     'la',
     'los angeles',
@@ -62,18 +111,20 @@ const COMMON_ALIASES: Record<string, string[]> = {
     'california',
     'pst',
     'pdt',
+    'pacific',
+    'pt',
     'usa',
     'us'
   ],
   'America/Anchorage': ['alaska', 'anchorage', 'akst', 'akdt'],
   'Pacific/Honolulu': ['hawaii', 'honolulu', 'hst'],
-  'America/Toronto': ['toronto', 'ottawa', 'montreal', 'canada', 'ontario', 'quebec'],
-  'America/Vancouver': ['vancouver', 'british columbia', 'bc', 'canada'],
-  'America/Edmonton': ['calgary', 'edmonton', 'alberta', 'canada'],
-  'America/Winnipeg': ['winnipeg', 'manitoba', 'canada'],
-  'America/Halifax': ['halifax', 'nova scotia', 'canada'],
+  'America/Toronto': ['toronto', 'ottawa', 'montreal', 'canada', 'ontario', 'quebec', 'eastern'],
+  'America/Vancouver': ['vancouver', 'british columbia', 'bc', 'canada', 'pacific'],
+  'America/Edmonton': ['calgary', 'edmonton', 'alberta', 'canada', 'mountain'],
+  'America/Winnipeg': ['winnipeg', 'manitoba', 'canada', 'central'],
+  'America/Halifax': ['halifax', 'nova scotia', 'canada', 'atlantic'],
   'America/St_Johns': ['newfoundland', 'st johns', 'canada'],
-  'America/Mexico_City': ['mexico city', 'cdmx', 'guadalajara', 'monterrey', 'mexico'],
+  'America/Mexico_City': ['mexico city', 'cdmx', 'guadalajara', 'monterrey', 'mexico', 'central'],
 
   // Europe
   'Europe/London': [
@@ -104,25 +155,25 @@ const COMMON_ALIASES: Record<string, string[]> = {
     'cet',
     'cest'
   ],
-  'Europe/Rome': ['rome', 'milan', 'naples', 'italy', 'italia'],
-  'Europe/Madrid': ['madrid', 'barcelona', 'valencia', 'spain', 'espana'],
-  'Europe/Amsterdam': ['amsterdam', 'rotterdam', 'netherlands', 'holland', 'dutch'],
-  'Europe/Brussels': ['brussels', 'belgium'],
-  'Europe/Zurich': ['zurich', 'geneva', 'basel', 'switzerland', 'swiss'],
-  'Europe/Vienna': ['vienna', 'austria'],
-  'Europe/Stockholm': ['stockholm', 'gothenburg', 'sweden'],
-  'Europe/Oslo': ['oslo', 'norway'],
-  'Europe/Copenhagen': ['copenhagen', 'denmark'],
-  'Europe/Helsinki': ['helsinki', 'finland'],
-  'Europe/Warsaw': ['warsaw', 'krakow', 'poland'],
-  'Europe/Prague': ['prague', 'czech republic', 'czechia'],
-  'Europe/Budapest': ['budapest', 'hungary'],
-  'Europe/Bucharest': ['bucharest', 'romania'],
-  'Europe/Athens': ['athens', 'greece'],
+  'Europe/Rome': ['rome', 'milan', 'naples', 'italy', 'italia', 'cet', 'cest'],
+  'Europe/Madrid': ['madrid', 'barcelona', 'valencia', 'spain', 'espana', 'cet', 'cest'],
+  'Europe/Amsterdam': ['amsterdam', 'rotterdam', 'netherlands', 'holland', 'dutch', 'cet', 'cest'],
+  'Europe/Brussels': ['brussels', 'belgium', 'cet', 'cest'],
+  'Europe/Zurich': ['zurich', 'geneva', 'basel', 'switzerland', 'swiss', 'cet', 'cest'],
+  'Europe/Vienna': ['vienna', 'austria', 'cet', 'cest'],
+  'Europe/Stockholm': ['stockholm', 'gothenburg', 'sweden', 'cet', 'cest'],
+  'Europe/Oslo': ['oslo', 'norway', 'cet', 'cest'],
+  'Europe/Copenhagen': ['copenhagen', 'denmark', 'cet', 'cest'],
+  'Europe/Helsinki': ['helsinki', 'finland', 'eet', 'eest'],
+  'Europe/Warsaw': ['warsaw', 'krakow', 'poland', 'cet', 'cest'],
+  'Europe/Prague': ['prague', 'czech republic', 'czechia', 'cet', 'cest'],
+  'Europe/Budapest': ['budapest', 'hungary', 'cet', 'cest'],
+  'Europe/Bucharest': ['bucharest', 'romania', 'eet', 'eest'],
+  'Europe/Athens': ['athens', 'greece', 'eet', 'eest'],
   'Europe/Istanbul': ['istanbul', 'ankara', 'turkey', 'turkiye'],
-  'Europe/Kyiv': ['kyiv', 'kiev', 'ukraine'],
+  'Europe/Kyiv': ['kyiv', 'kiev', 'ukraine', 'eet', 'eest'],
   'Europe/Moscow': ['moscow', 'saint petersburg', 'russia', 'msk'],
-  'Europe/Lisbon': ['lisbon', 'porto', 'portugal'],
+  'Europe/Lisbon': ['lisbon', 'porto', 'portugal', 'wet', 'west'],
 
   // Asia
   'Asia/Shanghai': [
@@ -135,14 +186,14 @@ const COMMON_ALIASES: Record<string, string[]> = {
     'hangzhou',
     'cst'
   ],
-  'Asia/Urumqi': ['urumqi', 'xinjiang', 'china'],
+  'Asia/Urumqi': ['urumqi', 'xinjiang', 'china', 'cst'],
   'Asia/Hong_Kong': ['hong kong', 'hk', 'hkt'],
-  'Asia/Taipei': ['taipei', 'taiwan'],
+  'Asia/Taipei': ['taipei', 'taiwan', 'cst'],
   'Asia/Tokyo': ['tokyo', 'japan', 'kyoto', 'osaka', 'yokohama', 'nagoya', 'sapporo', 'jst'],
   'Asia/Seoul': ['seoul', 'korea', 'south korea', 'busan', 'incheon', 'kst'],
   'Asia/Pyongyang': ['pyongyang', 'north korea'],
   'Asia/Singapore': ['singapore', 'sg', 'sgt'],
-  'Asia/Kuala_Lumpur': ['kuala lumpur', 'kl', 'malaysia', 'penang'],
+  'Asia/Kuala_Lumpur': ['kuala lumpur', 'kl', 'malaysia', 'penang', 'myt'],
   'Asia/Jakarta': ['jakarta', 'indonesia', 'java', 'bali', 'wib', 'surabaya', 'bandung'],
   'Asia/Makassar': ['makassar', 'bali', 'wita', 'indonesia'],
   'Asia/Jayapura': ['jayapura', 'wit', 'papua', 'indonesia'],
@@ -157,10 +208,11 @@ const COMMON_ALIASES: Record<string, string[]> = {
     'cambodia',
     'phnom penh',
     'laos',
-    'vientiane'
+    'vientiane',
+    'ict'
   ],
   'Asia/Ho_Chi_Minh': ['ho chi minh', 'saigon', 'hanoi', 'vietnam', 'ict'],
-  'Asia/Manila': ['manila', 'philippines', 'cebu'],
+  'Asia/Manila': ['manila', 'philippines', 'cebu', 'pht'],
   'Asia/Kolkata': [
     'india',
     'mumbai',
@@ -177,12 +229,12 @@ const COMMON_ALIASES: Record<string, string[]> = {
   'Asia/Karachi': ['karachi', 'lahore', 'islamabad', 'pakistan', 'pkt'],
   'Asia/Dhaka': ['dhaka', 'bangladesh', 'bdt'],
   'Asia/Colombo': ['colombo', 'sri lanka'],
-  'Asia/Kathmandu': ['nepal', 'kathmandu'],
+  'Asia/Kathmandu': ['nepal', 'kathmandu', 'npt'],
   'Asia/Dubai': ['dubai', 'abu dhabi', 'uae', 'united arab emirates', 'gst'],
   'Asia/Riyadh': ['riyadh', 'jeddah', 'mecca', 'medina', 'saudi arabia', 'ast'],
   'Asia/Doha': ['doha', 'qatar'],
   'Asia/Kuwait': ['kuwait city', 'kuwait'],
-  'Asia/Jerusalem': ['jerusalem', 'tel aviv', 'israel', 'ist'],
+  'Asia/Jerusalem': ['jerusalem', 'tel aviv', 'israel', 'ist', 'idt'],
   'Asia/Beirut': ['beirut', 'lebanon'],
   'Asia/Amman': ['amman', 'jordan'],
   'Asia/Almaty': ['almaty', 'astana', 'kazakhstan'],
@@ -190,7 +242,7 @@ const COMMON_ALIASES: Record<string, string[]> = {
 
   // Australia & Oceania
   'Australia/Sydney': ['sydney', 'canberra', 'new south wales', 'nsw', 'australia', 'aest', 'aedt'],
-  'Australia/Melbourne': ['melbourne', 'victoria', 'australia'],
+  'Australia/Melbourne': ['melbourne', 'victoria', 'australia', 'aest', 'aedt'],
   'Australia/Brisbane': ['brisbane', 'queensland', 'gold coast', 'australia', 'aest'],
   'Australia/Adelaide': ['adelaide', 'south australia', 'acst', 'acdt'],
   'Australia/Perth': ['perth', 'western australia', 'australia', 'awst'],
@@ -210,7 +262,7 @@ const COMMON_ALIASES: Record<string, string[]> = {
   'Africa/Johannesburg': ['johannesburg', 'cape town', 'pretoria', 'south africa', 'sast'],
   'Africa/Lagos': ['lagos', 'abuja', 'nigeria', 'wat'],
   'Africa/Nairobi': ['nairobi', 'kenya', 'eat'],
-  'Africa/Casablanca': ['casablanca', 'rabat', 'morocco', 'wet']
+  'Africa/Casablanca': ['casablanca', 'rabat', 'morocco', 'wet', 'west']
 };
 
 let cachedSearchItems: TimezoneSearchItem[] | null = null;
@@ -283,14 +335,16 @@ export function getAllSearchableTimezones(): TimezoneSearchItem[] {
     const countries = Array.from(countrySet);
     const primaryCountry = countries[0] || '';
 
-    // Extract localized timezone names (e.g., "China Standard Time", "Korean Standard Time")
+    // Extract localized generic and standard timezone names
     const tzNames: string[] = [];
+    let descriptor = '';
     try {
       const generic = new Intl.DateTimeFormat('en-US', { timeZone: id, timeZoneName: 'longGeneric' })
         .formatToParts(now)
         .find((p) => p.type === 'timeZoneName')?.value;
       if (generic && !generic.startsWith('GMT') && !generic.startsWith('UTC')) {
         tzNames.push(generic);
+        descriptor = generic;
       }
 
       const standard = new Intl.DateTimeFormat('en-US', { timeZone: id, timeZoneName: 'long' })
@@ -298,6 +352,7 @@ export function getAllSearchableTimezones(): TimezoneSearchItem[] {
         .find((p) => p.type === 'timeZoneName')?.value;
       if (standard && !standard.startsWith('GMT') && !standard.startsWith('UTC') && !tzNames.includes(standard)) {
         tzNames.push(standard);
+        if (!descriptor) descriptor = standard;
       }
     } catch {
       // ignore
@@ -305,6 +360,13 @@ export function getAllSearchableTimezones(): TimezoneSearchItem[] {
 
     const zonedNow = luxonNow.setZone(id);
     const offsetStr = zonedNow.isValid ? `UTC${zonedNow.toFormat('ZZ')}` : 'UTC';
+
+    // Resolve abbreviation (e.g. EDT, PDT, BST, CEST, JST, CST, etc.)
+    let abbr = KNOWN_ABBRS[id] || (zonedNow.isValid ? zonedNow.offsetNameShort : 'UTC');
+    if (!abbr || abbr.startsWith('GMT+') || abbr.startsWith('GMT-')) {
+      abbr = zonedNow.isValid ? `UTC${zonedNow.toFormat('Z')}` : 'UTC';
+    }
+
     const aliases = COMMON_ALIASES[id] || [];
 
     return {
@@ -314,6 +376,8 @@ export function getAllSearchableTimezones(): TimezoneSearchItem[] {
       country: primaryCountry,
       countries,
       countryCodes,
+      abbr,
+      descriptor,
       tzNames,
       offsetStr,
       aliases
@@ -328,11 +392,13 @@ function getFuse(): Fuse<TimezoneSearchItem> {
     const items = getAllSearchableTimezones();
     fuseInstance = new Fuse(items, {
       keys: [
-        { name: 'city', weight: 0.5 },
+        { name: 'city', weight: 0.45 },
+        { name: 'abbr', weight: 0.4 },
+        { name: 'descriptor', weight: 0.35 },
         { name: 'aliases', weight: 0.35 },
-        { name: 'countries', weight: 0.35 },
-        { name: 'country', weight: 0.3 },
-        { name: 'tzNames', weight: 0.25 },
+        { name: 'countries', weight: 0.3 },
+        { name: 'country', weight: 0.25 },
+        { name: 'tzNames', weight: 0.2 },
         { name: 'countryCodes', weight: 0.2 },
         { name: 'id', weight: 0.15 }
       ],

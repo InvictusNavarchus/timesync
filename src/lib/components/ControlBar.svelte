@@ -236,12 +236,22 @@
               class="search-item-btn"
               onclick={() => handleAddSearched(item)}
             >
-              <div class="item-name-wrap">
-                <span class="item-city">{item.city}</span>
-                {#if item.country && item.country !== item.city}
-                  <span class="item-country">, {item.country}</span>
-                {/if}
-                <sup class="item-abbr">{item.offsetStr}</sup>
+              <div class="item-content">
+                <div class="item-primary-row">
+                  <span class="item-city">{item.city}</span>
+                  <sup class="item-abbr">{item.abbr}</sup>
+                </div>
+                <div class="item-secondary-row">
+                  {#if item.descriptor}
+                    <span class="item-descriptor">{item.descriptor}</span>
+                  {/if}
+                  {#if item.descriptor && item.country && item.country !== item.city}
+                    <span class="item-sep">·</span>
+                  {/if}
+                  {#if item.country && item.country !== item.city}
+                    <span class="item-country">{item.country}</span>
+                  {/if}
+                </div>
               </div>
               <span class="item-clock">{timeStr}</span>
             </button>
@@ -610,7 +620,15 @@
     background: var(--bg-surface-alt);
   }
 
-  .item-name-wrap {
+  .item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .item-primary-row {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -622,17 +640,37 @@
     color: var(--text-main);
   }
 
-  .item-country {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-  }
-
   .item-abbr {
     font-size: 0.65rem;
+    font-weight: 600;
     color: var(--text-muted);
     border: 1px solid var(--border-primary);
     border-radius: 3px;
-    padding: 1px 3px;
+    padding: 1px 4px;
+    line-height: 1.1;
+  }
+
+  .item-secondary-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-descriptor {
+    color: var(--text-muted);
+  }
+
+  .item-sep {
+    opacity: 0.6;
+  }
+
+  .item-country {
+    color: var(--text-muted);
   }
 
   .item-clock {
@@ -640,5 +678,7 @@
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-main);
+    flex-shrink: 0;
+    margin-left: 12px;
   }
 </style>
