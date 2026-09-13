@@ -61,20 +61,20 @@
     return dialIndex * DEFAULT_DIAL_WIDTH;
   }
 
-  function handleTrackMouseMove(e: MouseEvent) {
+  function handleTrackPointerMove(e: PointerEvent) {
     if (isLocked || isDragging) return;
     mouseX = getSnappedX(e.clientX);
     windowWidth = DEFAULT_DIAL_WIDTH;
   }
 
-  function handleTrackMouseLeave() {
+  function handleTrackPointerLeave() {
     if (isLocked || isDragging) return;
-    // Snap back to home's current hour on mouse leave
+    // Snap back to home's current hour on pointer leave
     mouseX = getHomeCurrentHour() * DEFAULT_DIAL_WIDTH;
     windowWidth = DEFAULT_DIAL_WIDTH;
   }
 
-  function handleTrackMouseDown(e: MouseEvent) {
+  function handleTrackPointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
 
     if (!isLocked) {
@@ -83,7 +83,7 @@
       mouseX = snapped;
       windowWidth = DEFAULT_DIAL_WIDTH;
       isLocked = true;
-      commitMeetingState();
+      commitMeetingState(true);
     } else {
       // Click outside while locked clears selection
       isLocked = false;
@@ -93,7 +93,7 @@
     }
   }
 
-  function handleBoxMouseDown(e: MouseEvent) {
+  function handleBoxPointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
     e.stopPropagation();
 
@@ -103,11 +103,11 @@
     initialMouseX = mouseX;
     initialWidth = windowWidth;
 
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+    window.addEventListener('pointerup', handleGlobalPointerUp);
   }
 
-  function handleResizeMouseDown(e: MouseEvent, side: 'left' | 'right') {
+  function handleResizePointerDown(e: PointerEvent, side: 'left' | 'right') {
     if (e.button !== 0) return;
     e.stopPropagation();
 
@@ -117,11 +117,11 @@
     initialMouseX = mouseX;
     initialWidth = windowWidth;
 
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+    window.addEventListener('pointerup', handleGlobalPointerUp);
   }
 
-  function handleGlobalMouseMove(e: MouseEvent) {
+  function handleGlobalPointerMove(e: PointerEvent) {
     if (!isDragging) return;
     const dx = e.clientX - dragStartX;
 
@@ -129,12 +129,12 @@
       const snappedDelta = Math.round(dx / HALF_DIAL_WIDTH) * HALF_DIAL_WIDTH;
       const newX = Math.max(0, Math.min(TOTAL_DIALS_WIDTH - windowWidth, initialMouseX + snappedDelta));
       mouseX = newX;
-      commitMeetingState();
+      commitMeetingState(false);
     } else if (dragSide === 'right') {
       const snappedDelta = Math.round(dx / HALF_DIAL_WIDTH) * HALF_DIAL_WIDTH;
       const newWidth = Math.max(HALF_DIAL_WIDTH, Math.min(TOTAL_DIALS_WIDTH - mouseX, initialWidth + snappedDelta));
       windowWidth = newWidth;
-      commitMeetingState();
+      commitMeetingState(false);
     } else if (dragSide === 'left') {
       const snappedDelta = Math.round(dx / HALF_DIAL_WIDTH) * HALF_DIAL_WIDTH;
       const potentialNewX = initialMouseX + snappedDelta;
@@ -142,33 +142,36 @@
       if (potentialNewX >= 0 && potentialWidth >= HALF_DIAL_WIDTH) {
         mouseX = potentialNewX;
         windowWidth = potentialWidth;
-        commitMeetingState();
+        commitMeetingState(false);
       }
     }
   }
 
-  function handleGlobalMouseUp() {
+  function handleGlobalPointerUp() {
     isDragging = false;
     dragSide = null;
-    commitMeetingState();
-    window.removeEventListener('mousemove', handleGlobalMouseMove);
-    window.removeEventListener('mouseup', handleGlobalMouseUp);
+    commitMeetingState(true);
+    window.removeEventListener('pointermove', handleGlobalPointerMove);
+    window.removeEventListener('pointerup', handleGlobalPointerUp);
   }
 
-  function commitMeetingState() {
+  function commitMeetingState(syncUrl = true) {
     const startHour = mouseX / DEFAULT_DIAL_WIDTH;
     const endHour = (mouseX + windowWidth) / DEFAULT_DIAL_WIDTH;
-    syncState.setMeeting({
-      startHourIndex: startHour,
-      endHourIndex: endHour
-    });
+    syncState.setMeeting(
+      {
+        startHourIndex: startHour,
+        endHourIndex: endHour
+      },
+      syncUrl
+    );
   }
 
   onDestroy(() => {
     if (clockInterval) clearInterval(clockInterval);
     if (typeof window !== 'undefined') {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
     }
   });
 </script>
@@ -176,9 +179,9 @@
 <!-- The overlay container is aligned with the 768px dials column -->
 <div
   class="overlay-container"
-  onmousemove={handleTrackMouseMove}
-  onmouseleave={handleTrackMouseLeave}
-  onmousedown={handleTrackMouseDown}
+  onpointermove={handleTrackPointerMove}
+  onpointerleave={handleTrackPointerLeave}
+  onpointerdown={handleTrackPointerDown}
   role="presentation"
 >
   <div class="overlay-track" bind:this={trackRef}>
@@ -187,20 +190,20 @@
       class:is-locked={isLocked}
       style:left="{mouseX}px"
       style:width="{windowWidth}px"
-      onmousedown={handleBoxMouseDown}
+      onpointerdown={handleBoxPointerDown}
       role="presentation"
     >
       <!-- Left resize handle -->
       <div
         class="resize-handle left"
-        onmousedown={(e) => handleResizeMouseDown(e, 'left')}
+        onpointerdown={(e) => handleResizePointerDown(e, 'left')}
         role="presentation"
       ></div>
 
       <!-- Right resize handle -->
       <div
         class="resize-handle right"
-        onmousedown={(e) => handleResizeMouseDown(e, 'right')}
+        onpointerdown={(e) => handleResizePointerDown(e, 'right')}
         role="presentation"
       ></div>
     </div>
@@ -234,6 +237,7 @@
     border-radius: 6px;
     pointer-events: all;
     cursor: grab;
+    touch-action: none;
     transition: border-color 0.15s ease;
     background: rgba(239, 68, 68, 0.04);
   }
@@ -250,6 +254,7 @@
     bottom: 0;
     width: 8px;
     cursor: ew-resize;
+    touch-action: none;
     z-index: 25;
   }
 
